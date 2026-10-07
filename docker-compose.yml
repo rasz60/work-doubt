@@ -1,0 +1,26 @@
+# 선택 사항 — 기본 DB 는 Supabase 입니다(docs/RUN.md 2장).
+# 이 파일은 오프라인 개발이나 로컬 격리 테스트용 대안입니다.
+# 사용 시 .env 의 DATABASE_URL 을 로컬 주소로 바꿔야 합니다:
+#   DATABASE_URL=postgres://workout:workout@localhost:5432/workout?sslmode=disable
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: workout-db
+    environment:
+      POSTGRES_DB: workout
+      POSTGRES_USER: workout
+      POSTGRES_PASSWORD: workout
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # 컨테이너 최초 기동 시 스키마를 자동 적용한다.
+      - ./backend/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workout -d workout"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db_data:

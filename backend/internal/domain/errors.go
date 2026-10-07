@@ -1,0 +1,12 @@
+package domain
+
+import "errors"
+
+// 유스케이스 계층이 반환하는 센티널 에러. transport 계층에서 HTTP 상태로 매핑한다.
+var (
+	ErrNotFound     = errors.New("resource not found")
+	ErrConflict     = errors.New("resource already exists")
+	ErrInvalidInput = errors.New("invalid input")
+	ErrUnauthorized = errors.New("unauthorized")
+	ErrForbidden    = errors.New("forbidden")
+)

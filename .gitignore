@@ -1,0 +1,24 @@
+.env
+.env.local
+*.local
+
+# Go
+/backend/bin/
+*.exe
+*.test
+*.out
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Editor
+.idea/
+.vscode/*
+!.vscode/settings.json
+.DS_Store
