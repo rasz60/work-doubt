@@ -48,6 +48,7 @@ workout/
 |---|---|
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 기술 선택 근거, 레이어 규칙, 데이터 모델과 인덱스 설계, 설계 결정 메모 |
 | [docs/RUN.md](docs/RUN.md) | 실행 가이드 (플랫폼별 API 주소, API 스모크 테스트, 소셜 로그인 설정, 문제 해결) |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Oracle Cloud 배포 가이드 (VM·네트워크, Caddy HTTPS, systemd, 웹 빌드, 운영) |
 
 ## 빠르게 실행
 

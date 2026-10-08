@@ -4,7 +4,7 @@ import { Redirect, Tabs } from 'expo-router';
 
 import { Screen } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
-import { useTheme } from '@/theme';
+import { tracking, useTheme } from '@/theme';
 
 const TabsLayout = () => {
   const theme = useTheme();
@@ -19,21 +19,31 @@ const TabsLayout = () => {
   }
   if (!user) return <Redirect href="/login" />;
 
+  // 아이콘 없이 영문 대문자 라벨만 쓰는 텍스트 탭바. 헤더는 각 화면의 Heading 이 대신한다.
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: theme.bg },
-        headerTintColor: theme.text,
-        tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.border },
-        tabBarActiveTintColor: theme.accent,
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: theme.bg,
+          borderTopColor: theme.text,
+          borderTopWidth: 1,
+          elevation: 0,
+          shadowOpacity: 0,
+        },
+        tabBarIcon: () => null,
+        tabBarIconStyle: { display: 'none' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', letterSpacing: tracking.label },
+        tabBarItemStyle: { justifyContent: 'center' },
+        tabBarActiveTintColor: theme.text,
         tabBarInactiveTintColor: theme.textMuted,
         sceneStyle: { backgroundColor: theme.bg },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: '변동폭' }} />
-      <Tabs.Screen name="record" options={{ title: '기록' }} />
-      <Tabs.Screen name="coach" options={{ title: 'AI 코치' }} />
-      <Tabs.Screen name="profile" options={{ title: '프로필' }} />
+      <Tabs.Screen name="index" options={{ title: 'TREND' }} />
+      <Tabs.Screen name="record" options={{ title: 'RECORD' }} />
+      <Tabs.Screen name="coach" options={{ title: 'COACH' }} />
+      <Tabs.Screen name="profile" options={{ title: 'PROFILE' }} />
     </Tabs>
   );
 };

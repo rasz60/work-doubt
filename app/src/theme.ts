@@ -7,37 +7,47 @@ export interface Theme {
   grid: string;
   text: string;
   textMuted: string;
-  accent: string; // 차트 1개 시리즈 색. 라이트/다크 각각 대비 검증 완료.
+  accent: string; // 모노크롬이라 강조색은 본문색과 같다. 차트 선·주 버튼에 쓴다.
+  onAccent: string; // accent 배경 위 글자색
+  danger: string; // 오류 메시지 전용. 화면에서 유일한 유채색이다.
   up: string;
   down: string;
 }
 
-// 다크 모드는 라이트의 반전이 아니라 각 모드에서 따로 고른 값이다.
+// 블랙 & 화이트 모노크롬. 위계는 색이 아니라 굵기·크기·자간·여백으로 만든다.
 const darkTheme: Theme = {
-  bg: '#101214',
-  surface: '#1a1d22',
-  border: '#2a2f38',
-  grid: '#232830',
-  text: '#f2f4f8',
-  textMuted: '#98a1b0',
-  accent: '#4f8cff',
-  up: '#ff7a6b',
-  down: '#3ad29f',
+  bg: '#000000',
+  surface: '#0b0b0b',
+  border: '#2a2a2a',
+  grid: '#1c1c1c',
+  text: '#ffffff',
+  textMuted: '#8c8c8c',
+  accent: '#ffffff',
+  onAccent: '#000000',
+  danger: '#ff5a4f',
+  up: '#ffffff',
+  down: '#ffffff',
 };
 
 const lightTheme: Theme = {
-  bg: '#f7f8fa',
+  bg: '#ffffff',
   surface: '#ffffff',
-  border: '#e2e6ec',
-  grid: '#eef1f5',
-  text: '#15181d',
-  textMuted: '#5c6675',
-  accent: '#2563eb',
-  up: '#c2410c',
-  down: '#0f766e',
+  border: '#e5e5e5',
+  grid: '#f0f0f0',
+  text: '#000000',
+  textMuted: '#737373',
+  accent: '#000000',
+  onAccent: '#ffffff',
+  danger: '#d92d20',
+  up: '#000000',
+  down: '#000000',
 };
 
-export const useTheme = (): Theme => (useColorScheme() === 'light' ? lightTheme : darkTheme);
+//export const useTheme = (): Theme => (useColorScheme() === 'light' ? lightTheme : darkTheme);
+export const useTheme = (): Theme => lightTheme;
 
 export const space = (n: number): number => n * 4;
-export const radius = 12;
+export const radius = 0;
+
+// 영문 대문자 라벨용 자간. 한글에는 쓰지 않는다.
+export const tracking = { tight: -0.5, label: 1.5, wide: 2.5 } as const;

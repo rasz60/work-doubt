@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { Button, Field, Message, Screen } from '@/components/ui';
+import { Button, Divider, Field, Heading, Message, Screen } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { useAuth } from '@/hooks/useAuth';
-import { radius, space, useTheme } from '@/theme';
+import { space, tracking, useTheme } from '@/theme';
 import type { Group, GroupMember } from '@/types';
 
 // 프로필 + 그룹(계정 간 데이터 공유) 관리.
@@ -52,13 +52,16 @@ const Profile = () => {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ gap: space(3) }} keyboardShouldPersistTaps="handled">
-        <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>프로필</Text>
-        <Text style={{ color: theme.textMuted, fontSize: 12 }}>{user?.email || '소셜 계정'}</Text>
+      <ScrollView
+        contentContainerStyle={{ gap: space(4), paddingBottom: space(6) }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Heading eyebrow="Profile" title={user?.display_name || '프로필'} caption={user?.email || '소셜 계정'} />
 
         <Field label="표시 이름" value={displayName} onChangeText={setDisplayName} />
         <Button
-          title="프로필 저장"
+          title="SAVE PROFILE"
           onPress={() =>
             void run(async () => {
               await api.updateProfile({ display_name: displayName });
@@ -68,27 +71,36 @@ const Profile = () => {
           }
         />
 
-        <View style={{ height: 1, backgroundColor: theme.border }} />
+        <View style={{ height: space(4) }} />
+        <Divider strong />
 
-        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600' }}>그룹</Text>
-        <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-          같은 그룹의 구성원은 서로의 지표 차트를 볼 수 있습니다(공유를 끈 구성원은 제외).
-        </Text>
+        <View style={{ gap: space(1.5) }}>
+          <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: tracking.wide }}>
+            GROUPS
+          </Text>
+          <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18 }}>
+            같은 그룹의 구성원은 서로의 지표 차트를 볼 수 있습니다(공유를 끈 구성원은 제외).
+          </Text>
+        </View>
 
         {groups.map((group) => (
           <View
             key={group.id}
             style={{
-              borderWidth: 1,
-              borderColor: theme.border,
-              borderRadius: radius,
-              backgroundColor: theme.surface,
-              padding: space(3),
-              gap: space(1),
+              borderBottomWidth: 1,
+              borderBottomColor: theme.border,
+              paddingBottom: space(4),
+              gap: space(1.5),
             }}
           >
-            <Text style={{ color: theme.text, fontWeight: '600' }}>{group.name}</Text>
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>초대 코드 {group.invite_code}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{group.name}</Text>
+              <Text
+                style={{ color: theme.text, fontSize: 12, fontWeight: '700', letterSpacing: tracking.label }}
+              >
+                {group.invite_code}
+              </Text>
+            </View>
             <Text style={{ color: theme.textMuted, fontSize: 12 }}>
               {(members[group.id] ?? [])
                 .map((m) => `${m.display_name}${m.share_data ? '' : ' (비공개)'}`)
@@ -99,7 +111,7 @@ const Profile = () => {
 
         <Field label="새 그룹 이름" value={groupName} onChangeText={setGroupName} />
         <Button
-          title="그룹 만들기"
+          title="CREATE GROUP"
           variant="ghost"
           onPress={() =>
             void run(async () => {
@@ -112,7 +124,7 @@ const Profile = () => {
 
         <Field label="초대 코드" value={inviteCode} onChangeText={setInviteCode} />
         <Button
-          title="그룹 참여"
+          title="JOIN GROUP"
           variant="ghost"
           onPress={() =>
             void run(async () => {
@@ -126,10 +138,11 @@ const Profile = () => {
         <Message text={error} tone="error" />
         <Message text={notice} />
 
-        <View style={{ height: 1, backgroundColor: theme.border }} />
+        <View style={{ height: space(4) }} />
+        <Divider />
 
         <Button
-          title="로그아웃"
+          title="SIGN OUT"
           variant="ghost"
           onPress={() => {
             void signOut().then(() => router.replace('/login'));

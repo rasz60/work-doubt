@@ -4,9 +4,9 @@ import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
-import { Button, Field, Message, Screen } from '@/components/ui';
+import { Button, Divider, Field, Heading, Message, Screen } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
-import { space, useTheme } from '@/theme';
+import { space, tracking, useTheme } from '@/theme';
 import type { Provider } from '@/types';
 
 type SocialProvider = Exclude<Provider, 'local'>;
@@ -65,7 +65,7 @@ const Login = () => {
   const startSocial = async (provider: SocialProvider): Promise<void> => {
     const clientId = CLIENT_IDS[provider];
     if (!clientId) {
-      setError(`${provider} client id 가 설정되지 않았습니다.`);
+      setError(`${provider} 로그인이 불가능 합니다. 관리자에게 문의해주세요.`);
       return;
     }
 
@@ -98,10 +98,23 @@ const Login = () => {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ gap: space(3) }} keyboardShouldPersistTaps="handled">
-        <Text style={{ color: theme.text, fontSize: 24, fontWeight: '700' }}>
-          {mode === 'login' ? '로그인' : '계정 만들기'}
-        </Text>
+      <ScrollView
+        contentContainerStyle={{ gap: space(5), paddingBottom: space(6) }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 워드마크: 로고 이미지 없이 굵은 대문자 타이포만으로 브랜드를 만든다. */}
+        <View style={{ paddingTop: space(10), paddingBottom: space(6), gap: space(2) }}>
+          <Text style={{ color: theme.text, fontSize: 48, fontWeight: '900', letterSpacing: tracking.tight }}>
+            NO-WORK-DOUBT.
+          </Text>
+          <View style={{ height: 2, width: space(10), backgroundColor: theme.text }} />
+        </View>
+
+        <Heading
+          eyebrow={mode === 'login' ? 'Sign In' : 'Create Account'}
+          title={mode === 'login' ? '로그인' : '계정 만들기'}
+        />
 
         <Field label="이메일" value={email} onChangeText={setEmail} keyboardType="email-address" />
         <Field label="비밀번호" value={password} onChangeText={setPassword} secureTextEntry />
@@ -112,7 +125,7 @@ const Login = () => {
         <Message text={error} tone="error" />
 
         <Button
-          title={mode === 'login' ? '로그인' : '가입하기'}
+          title={mode === 'login' ? 'SIGN IN' : 'SIGN UP'}
           onPress={() => void submit()}
           disabled={busy}
         />
@@ -122,7 +135,17 @@ const Login = () => {
           onPress={() => setMode(mode === 'login' ? 'register' : 'login')}
         />
 
-        <View style={{ height: 1, backgroundColor: theme.border, marginVertical: space(2) }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(3) }}>
+          <View style={{ flex: 1 }}>
+            <Divider />
+          </View>
+          <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: tracking.label }}>
+            OR
+          </Text>
+          <View style={{ flex: 1 }}>
+            <Divider />
+          </View>
+        </View>
 
         {(Object.keys(SOCIAL_LABELS) as SocialProvider[]).map((provider) => (
           <Button

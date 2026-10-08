@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { radius, space, useTheme } from '@/theme';
+import { space, tracking, useTheme } from '@/theme';
 
 interface FieldProps {
   label: string;
@@ -14,6 +15,7 @@ interface FieldProps {
   multiline?: boolean;
 }
 
+// 박스 대신 밑줄 하나로 입력 영역을 표시한다. 포커스되면 밑줄이 진해진다.
 export const Field = ({
   label,
   value,
@@ -25,10 +27,11 @@ export const Field = ({
   multiline = false,
 }: FieldProps) => {
   const theme = useTheme();
+  const [focused, setFocused] = React.useState<boolean>(false);
 
   return (
-    <View style={{ gap: space(1), paddingHorizontal: space(1) }}>
-      <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: space(1) }}>{label}</Text>
+    <View style={{ gap: space(1) }}>
+      <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '600' }}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -38,16 +41,16 @@ export const Field = ({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         multiline={multiline}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         style={{
-          backgroundColor: theme.surface,
-          borderColor: theme.border,
-          borderWidth: 1,
-          borderRadius: radius,
+          borderBottomWidth: 1,
+          borderBottomColor: focused ? theme.text : theme.border,
           color: theme.text,
-          paddingHorizontal: space(3),
-          paddingVertical: space(2.5),
-          fontSize: 15,
-          minHeight: multiline ? 80 : undefined,
+          paddingVertical: space(2),
+          fontSize: 16,
+          minHeight: multiline ? 72 : undefined,
+          textAlignVertical: multiline ? 'top' : 'center',
         }}
       />
     </View>
@@ -71,28 +74,74 @@ export const Button = ({ title, onPress, variant = 'primary', disabled = false }
       disabled={disabled}
       style={({ pressed }) => ({
         backgroundColor: primary ? theme.accent : 'transparent',
-        borderColor: primary ? theme.accent : theme.border,
+        borderColor: primary ? theme.accent : theme.text,
         borderWidth: 1,
-        borderRadius: radius,
-        paddingVertical: space(3),
+        paddingVertical: space(4),
         alignItems: 'center',
-        opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
+        opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
       })}
     >
-      <Text style={{ color: primary ? '#ffffff' : theme.text, fontWeight: '600', fontSize: 15 }}>
+      <Text
+        style={{
+          color: primary ? theme.onAccent : theme.text,
+          fontWeight: '700',
+          fontSize: 13,
+          letterSpacing: tracking.label,
+        }}
+      >
         {title}
       </Text>
     </Pressable>
   );
 };
 
+interface HeadingProps {
+  eyebrow: string; // 영문 대문자 소제목 (예: 'TREND')
+  title: string;
+  caption?: string;
+}
+
+// 화면 상단 타이틀. 영문 eyebrow + 굵은 한글 제목 + 보조 설명.
+export const Heading = ({ eyebrow, title, caption }: HeadingProps) => {
+  const theme = useTheme();
+
+  return (
+    <View style={{ gap: space(1.5), paddingBottom: space(2) }}>
+      <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: tracking.wide }}>
+        {eyebrow.toUpperCase()}
+      </Text>
+      <Text style={{ color: theme.text, fontSize: 28, fontWeight: '800', letterSpacing: tracking.tight }}>
+        {title}
+      </Text>
+      {caption ? (
+        <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18 }}>{caption}</Text>
+      ) : null}
+    </View>
+  );
+};
+
+interface DividerProps {
+  strong?: boolean;
+}
+
+export const Divider = ({ strong = false }: DividerProps) => {
+  const theme = useTheme();
+  return <View style={{ height: 1, backgroundColor: strong ? theme.text : theme.border }} />;
+};
+
 interface ScreenProps {
   children: React.ReactNode;
 }
 
+// 네비게이션 헤더를 쓰지 않으므로 상태바 영역은 Screen 이 직접 비운다.
 export const Screen = ({ children }: ScreenProps) => {
   const theme = useTheme();
-  return <View style={[styles.screen, { backgroundColor: theme.bg, padding: space(4) }]}>{children}</View>;
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.screen, { backgroundColor: theme.bg, paddingTop: insets.top + space(4) }]}>
+      {children}
+    </View>
+  );
 };
 
 interface MessageProps {
@@ -104,10 +153,10 @@ export const Message = ({ text, tone = 'muted' }: MessageProps) => {
   const theme = useTheme();
   if (!text) return null;
   return (
-    <Text style={{ color: tone === 'error' ? theme.up : theme.textMuted, fontSize: 13 }}>{text}</Text>
+    <Text style={{ color: tone === 'error' ? theme.danger : theme.textMuted, fontSize: 13 }}>{text}</Text>
   );
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, padding: space(4), gap: space(3) },
+  screen: { flex: 1, paddingHorizontal: space(5), paddingVertical: space(4), gap: space(3) },
 });

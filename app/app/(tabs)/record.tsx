@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { ScrollView } from 'react-native';
 
-import { Button, Field, Message, Screen } from '@/components/ui';
+import { Button, Field, Heading, Message, Screen } from '@/components/ui';
 import * as api from '@/api/endpoints';
-import { space, useTheme } from '@/theme';
+import { space } from '@/theme';
 
 const today = (): string => new Date().toISOString().slice(0, 10);
 
@@ -15,8 +15,6 @@ const toNumber = (value: string): number | undefined => {
 };
 
 const Record = () => {
-  const theme = useTheme();
-
   const [measuredAt, setMeasuredAt] = useState<string>(today());
   const [height, setHeight] = useState<string>('');
   const [weight, setWeight] = useState<string>('');
@@ -53,11 +51,16 @@ const Record = () => {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ gap: space(3) }} keyboardShouldPersistTaps="handled">
-        <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>지표 입력</Text>
-        <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-          같은 날짜를 다시 저장하면 기존 기록을 덮어씁니다. BMI 는 키와 체중으로 자동 계산됩니다.
-        </Text>
+      <ScrollView
+        contentContainerStyle={{ gap: space(5), paddingBottom: space(6) }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Heading
+          eyebrow="Record"
+          title="지표 입력"
+          caption="같은 날짜를 다시 저장하면 기존 기록을 덮어씁니다. BMI 는 키와 체중으로 자동 계산됩니다."
+        />
 
         <Field label="측정일 (YYYY-MM-DD)" value={measuredAt} onChangeText={setMeasuredAt} />
         <Field label="키 (cm)" value={height} onChangeText={setHeight} keyboardType="decimal-pad" />
@@ -74,7 +77,7 @@ const Record = () => {
         <Message text={error} tone="error" />
         <Message text={result} />
 
-        <Button title="저장" onPress={() => void submit()} disabled={busy} />
+        <Button title="SAVE" onPress={() => void submit()} disabled={busy} />
       </ScrollView>
     </Screen>
   );

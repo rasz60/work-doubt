@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-import { radius, space, useTheme } from '@/theme';
+import { space, tracking, useTheme } from '@/theme';
 import type { MetricSeries } from '@/types';
 
 interface TrendChartProps {
@@ -76,6 +76,7 @@ export const TrendChart = ({
   }
 
   const { delta, first, last } = series.stats;
+  // 모노크롬이라 증감은 색이 아니라 부호로 구분한다. 변화가 없을 때만 흐리게.
   const deltaColor = delta === 0 ? theme.textMuted : delta > 0 ? theme.up : theme.down;
   const active = selected === null ? null : points[selected] ?? null;
 
@@ -115,7 +116,7 @@ export const TrendChart = ({
           strokeWidth={1}
         />
 
-        <Path d={path} stroke={theme.accent} strokeWidth={2} fill="none" strokeLinejoin="round" />
+        <Path d={path} stroke={theme.accent} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
 
         {/* 마지막 점만 상시 표시하고, 나머지는 선택 시에만 강조한다. */}
         <Circle
@@ -123,7 +124,7 @@ export const TrendChart = ({
           cy={points[points.length - 1]?.y}
           r={4}
           fill={theme.accent}
-          stroke={theme.surface}
+          stroke={theme.bg}
           strokeWidth={2}
         />
 
@@ -134,10 +135,11 @@ export const TrendChart = ({
               y1={PADDING.top}
               x2={active.x}
               y2={PADDING.top + innerHeight}
-              stroke={theme.border}
+              stroke={theme.textMuted}
               strokeWidth={1}
+              strokeDasharray="2,3"
             />
-            <Circle cx={active.x} cy={active.y} r={5} fill={theme.accent} stroke={theme.surface} strokeWidth={2} />
+            <Circle cx={active.x} cy={active.y} r={5} fill={theme.bg} stroke={theme.accent} strokeWidth={1.5} />
           </>
         )}
       </Svg>
@@ -168,19 +170,19 @@ const formatDate = (value?: string): string => (value ? value.slice(0, 10) : '-'
 
 const createStyles = (theme: ReturnType<typeof useTheme>) =>
   StyleSheet.create({
+    // 박스 카드 대신 위쪽 굵은 선 하나로 섹션을 나누는 에디토리얼 레이아웃.
     card: {
-      backgroundColor: theme.surface,
-      borderColor: theme.border,
-      borderWidth: 1,
-      borderRadius: radius,
-      padding: space(3),
-      gap: space(2),
+      borderTopColor: theme.text,
+      borderTopWidth: 1,
+      paddingTop: space(4),
+      paddingBottom: space(6),
+      gap: space(3),
     },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    title: { color: theme.text, fontSize: 15, fontWeight: '600' },
-    delta: { fontSize: 15, fontWeight: '700' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+    title: { color: theme.textMuted, fontSize: 12, fontWeight: '700' },
+    delta: { fontSize: 32, fontWeight: '800', letterSpacing: tracking.tight },
     footer: { flexDirection: 'row', justifyContent: 'space-between' },
-    axisLabel: { color: theme.textMuted, fontSize: 11 },
-    selectedLabel: { color: theme.text, fontSize: 11, fontWeight: '600' },
+    axisLabel: { color: theme.textMuted, fontSize: 11, fontVariant: ['tabular-nums'] },
+    selectedLabel: { color: theme.text, fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] },
     empty: { color: theme.textMuted, fontSize: 13 },
   });

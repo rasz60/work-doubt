@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, useWindowDimensions } from 'react-native';
 
 import { TrendChart } from '@/components/TrendChart';
-import { Message, Screen } from '@/components/ui';
+import { Heading, Message, Screen } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { space, useTheme } from '@/theme';
 import { METRIC_LABELS, type MetricKind, type MetricSeries } from '@/types';
@@ -21,7 +21,7 @@ const UNITS: Record<MetricKind, string> = {
 const Dashboard = () => {
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const chartWidth = Math.min(width, 640) - space(4) * 2 - space(3) * 2;
+  const chartWidth = Math.min(width, 640) - space(5) * 2;
 
   const [series, setSeries] = useState<MetricSeries[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -46,18 +46,20 @@ const Dashboard = () => {
   return (
     <Screen>
       {loading ? (
-        <ActivityIndicator />
+        <ActivityIndicator color={theme.text} />
       ) : (
         <ScrollView
           contentContainerStyle={{ gap: space(3) }}
-          refreshControl={<RefreshControl refreshing={false} onRefresh={() => void load()} />}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={false} onRefresh={() => void load()} tintColor={theme.text} />
+          }
         >
-          <View style={{ gap: space(1) }}>
-            <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>최근 6개월 변동폭</Text>
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-              차트를 누르면 해당 시점의 값을 볼 수 있습니다.
-            </Text>
-          </View>
+          <Heading
+            eyebrow="Trend · 6 Months"
+            title="최근 6개월 변동폭"
+            caption="차트를 누르면 해당 시점의 값을 볼 수 있습니다."
+          />
 
           <Message text={error} tone="error" />
 
