@@ -13,7 +13,6 @@ import (
 	"github.com/devsixt/workout/backend/internal/config"
 	"github.com/devsixt/workout/backend/internal/platform/ai"
 	"github.com/devsixt/workout/backend/internal/platform/auth"
-	"github.com/devsixt/workout/backend/internal/platform/oauth"
 	"github.com/devsixt/workout/backend/internal/repository/postgres"
 	transport "github.com/devsixt/workout/backend/internal/transport/http"
 	"github.com/devsixt/workout/backend/internal/usecase"
@@ -49,22 +48,20 @@ func run() error {
 	// 의존성 조립: repository → usecase → transport.
 	var (
 		users     = postgres.NewUserRepository(pool)
-		tokens    = postgres.NewRefreshTokenRepository(pool)
 		metrics   = postgres.NewBodyMetricRepository(pool)
 		groups    = postgres.NewGroupRepository(pool)
 		coachRepo = postgres.NewCoachRepository(pool)
 
-		issuer = auth.NewIssuer(cfg.JWTSecret, cfg.AccessTTL, cfg.RefreshTTL)
 		engine = ai.NewClaude(cfg.AnthropicAPIKey, cfg.ClaudeModel)
 	)
 
 	router := transport.NewRouter(transport.Deps{
-		Config: cfg,
-		Issuer: issuer,
-		Auth:   usecase.NewAuth(users, tokens, issuer, oauth.NewResolver(cfg)),
-		Metric: usecase.NewMetric(metrics, groups),
-		Group:  usecase.NewGroup(groups),
-		Coach:  usecase.NewCoach(coachRepo, users, metrics, engine),
+		Config:   cfg,
+		Verifier: auth.NewVerifier(cfg.SupabaseURL),
+		Account:  usecase.NewAccount(users),
+		Metric:   usecase.NewMetric(metrics, groups),
+		Group:    usecase.NewGroup(groups),
+		Coach:    usecase.NewCoach(coachRepo, users, metrics, engine),
 	})
 
 	server := &http.Server{

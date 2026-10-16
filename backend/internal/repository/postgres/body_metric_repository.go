@@ -34,7 +34,7 @@ const bodyMetricColumns = `id, user_id, measured_at, height_cm, weight_kg,
 func (r *BodyMetricRepository) Upsert(ctx context.Context, m *domain.BodyMetric) error {
 	// bmi 는 generated column 이므로 INSERT 대상이 아니다.
 	const q = `
-		INSERT INTO body_metrics
+		INSERT INTO workout.body_metrics
 			(id, user_id, measured_at, height_cm, weight_kg, skeletal_muscle_kg, body_fat_percentage, memo)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, nullif($8, ''))
 		ON CONFLICT (user_id, measured_at) DO UPDATE
@@ -52,7 +52,7 @@ func (r *BodyMetricRepository) Upsert(ctx context.Context, m *domain.BodyMetric)
 }
 
 func (r *BodyMetricRepository) Delete(ctx context.Context, userID, id string) error {
-	const q = `DELETE FROM body_metrics WHERE id = $1 AND user_id = $2`
+	const q = `DELETE FROM workout.body_metrics WHERE id = $1 AND user_id = $2`
 
 	tag, err := r.pool.Exec(ctx, q, id, userID)
 	if err != nil {
@@ -67,7 +67,7 @@ func (r *BodyMetricRepository) Delete(ctx context.Context, userID, id string) er
 func (r *BodyMetricRepository) Latest(ctx context.Context, userID string) (*domain.BodyMetric, error) {
 	// idx_body_metrics_user_measured_at (user_id, measured_at DESC) 를 탄다.
 	q := fmt.Sprintf(`
-		SELECT %s FROM body_metrics
+		SELECT %s FROM workout.body_metrics
 		 WHERE user_id = $1
 		 ORDER BY measured_at DESC
 		 LIMIT 1`, bodyMetricColumns)
@@ -90,7 +90,7 @@ func (r *BodyMetricRepository) Latest(ctx context.Context, userID string) (*doma
 
 func (r *BodyMetricRepository) List(ctx context.Context, userID string, mr domain.MetricRange, limit int) ([]domain.BodyMetric, error) {
 	q := fmt.Sprintf(`
-		SELECT %s FROM body_metrics
+		SELECT %s FROM workout.body_metrics
 		 WHERE user_id = $1 AND measured_at BETWEEN $2 AND $3
 		 ORDER BY measured_at DESC
 		 LIMIT $4`, bodyMetricColumns)
@@ -117,7 +117,7 @@ func (r *BodyMetricRepository) Series(ctx context.Context, userID string, kind d
 	// 차트는 오름차순이어야 하고, NULL 인 지표는 점으로 그리지 않는다.
 	q := fmt.Sprintf(`
 		SELECT measured_at, %s
-		  FROM body_metrics
+		  FROM workout.body_metrics
 		 WHERE user_id = $1
 		   AND measured_at BETWEEN $2 AND $3
 		   AND %s IS NOT NULL

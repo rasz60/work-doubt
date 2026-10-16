@@ -10,14 +10,16 @@ import (
 
 	"github.com/devsixt/workout/backend/internal/domain"
 	"github.com/devsixt/workout/backend/internal/platform/auth"
+	"github.com/devsixt/workout/backend/internal/usecase"
 )
 
 type ctxKey string
 
 const ctxKeyUserID ctxKey = "user_id"
 
-// requireAuth 는 Bearer access token 을 검증하고 user id 를 컨텍스트에 심는다.
-func requireAuth(issuer *auth.Issuer, next http.HandlerFunc) http.HandlerFunc {
+// requireAuth 는 Supabase access token(Bearer)을 검증하고 user id 를 컨텍스트에 심는다.
+// 처음 들어온 사용자는 프로필(workout.profiles)을 만든다.
+func requireAuth(verifier *auth.Verifier, account *usecase.Account, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
 		token, ok := bearerToken(header)
@@ -30,13 +32,17 @@ func requireAuth(issuer *auth.Issuer, next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		userID, err := issuer.Verify(token)
+		claims, err := verifier.Verify(r.Context(), token)
 		if err != nil {
 			writeError(w, fmt.Errorf("auth middleware: %v: %w", err, domain.ErrUnauthorized))
 			return
 		}
+		if err := account.Ensure(r.Context(), claims.Subject, claims.Email); err != nil {
+			writeError(w, err)
+			return
+		}
 
-		ctx := context.WithValue(r.Context(), ctxKeyUserID, userID)
+		ctx := context.WithValue(r.Context(), ctxKeyUserID, claims.Subject)
 		next(w, r.WithContext(ctx))
 	}
 }
@@ -55,6 +61,7 @@ func bearerToken(header string) (string, bool) {
 }
 
 // withCORS 는 웹 클라이언트(React Native Web) 를 위한 프리플라이트를 처리한다.
+// 포털 아래(같은 도메인)에서는 필요 없지만, 로컬 개발(Expo 웹 서버)과 네이티브 앱 개발용으로 둔다.
 func withCORS(allowOrigin string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", allowOrigin)

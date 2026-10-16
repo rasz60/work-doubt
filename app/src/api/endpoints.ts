@@ -9,39 +9,10 @@ import type {
   ListResponse,
   MetricKind,
   MetricSeries,
-  Provider,
-  Session,
   User,
 } from '@/types';
 
-// ── 계정 ────────────────────────────────────────────────
-
-export const register = (email: string, password: string, displayName: string): Promise<Session> =>
-  request<Session>('/api/v1/auth/register', {
-    method: 'POST',
-    auth: false,
-    body: { email, password, display_name: displayName },
-  });
-
-export const login = (email: string, password: string): Promise<Session> =>
-  request<Session>('/api/v1/auth/login', {
-    method: 'POST',
-    auth: false,
-    body: { email, password },
-  });
-
-export const socialLogin = (
-  provider: Exclude<Provider, 'local'>,
-  code: string,
-  redirectURL: string,
-): Promise<Session> =>
-  request<Session>(`/api/v1/auth/social/${provider}`, {
-    method: 'POST',
-    auth: false,
-    body: { code, redirect_url: redirectURL },
-  });
-
-export const logout = (): Promise<void> => request<void>('/api/v1/auth/logout', { method: 'POST' });
+// ── 계정 (로그인은 ae:p 포털 · Supabase Auth) ───────────────
 
 export const fetchMe = (): Promise<User> => request<User>('/api/v1/me');
 

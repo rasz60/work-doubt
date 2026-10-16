@@ -4,8 +4,7 @@ go 1.26.0
 
 // 의존성은 `go mod tidy` 로 확정합니다. README 의 "Backend 실행" 참고.
 // - github.com/jackc/pgx/v5        (PostgreSQL driver / pool)
-// - github.com/golang-jwt/jwt/v5   (access / refresh token)
-// - golang.org/x/crypto            (bcrypt)
+// - github.com/golang-jwt/jwt/v5   (Supabase access token 검증)
 // - github.com/anthropics/anthropic-sdk-go (AI coach)
 
 require (
@@ -13,7 +12,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
-	golang.org/x/crypto v0.57.0
 )
 
 require (

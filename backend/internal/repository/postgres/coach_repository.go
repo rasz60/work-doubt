@@ -19,7 +19,7 @@ var _ domain.CoachRepository = (*CoachRepository)(nil)
 
 func (r *CoachRepository) CreateConversation(ctx context.Context, c *domain.Conversation) error {
 	const q = `
-		INSERT INTO coach_conversations (id, user_id, title, goal)
+		INSERT INTO workout.coach_conversations (id, user_id, title, goal)
 		VALUES ($1, $2, $3, $4)
 		RETURNING created_at, updated_at`
 
@@ -30,7 +30,7 @@ func (r *CoachRepository) CreateConversation(ctx context.Context, c *domain.Conv
 func (r *CoachRepository) FindConversation(ctx context.Context, userID, id string) (*domain.Conversation, error) {
 	const q = `
 		SELECT id, user_id, title, coalesce(goal, ''), created_at, updated_at
-		  FROM coach_conversations
+		  FROM workout.coach_conversations
 		 WHERE id = $1 AND user_id = $2`
 
 	var c domain.Conversation
@@ -47,7 +47,7 @@ func (r *CoachRepository) ListConversations(ctx context.Context, userID string, 
 	// idx_coach_conversations_user_updated_at (user_id, updated_at DESC) 를 탄다.
 	const q = `
 		SELECT id, user_id, title, coalesce(goal, ''), created_at, updated_at
-		  FROM coach_conversations
+		  FROM workout.coach_conversations
 		 WHERE user_id = $1
 		 ORDER BY updated_at DESC
 		 LIMIT $2`
@@ -74,11 +74,11 @@ func (r *CoachRepository) ListConversations(ctx context.Context, userID string, 
 func (r *CoachRepository) AppendMessage(ctx context.Context, m *domain.ChatMessage) error {
 	const q = `
 		WITH inserted AS (
-			INSERT INTO coach_messages (id, conversation_id, role, content)
+			INSERT INTO workout.coach_messages (id, conversation_id, role, content)
 			VALUES ($1, $2, $3, $4)
 			RETURNING id, created_at, conversation_id
 		), touched AS (
-			UPDATE coach_conversations
+			UPDATE workout.coach_conversations
 			   SET updated_at = now()
 			 WHERE id = (SELECT conversation_id FROM inserted)
 		)
@@ -94,7 +94,7 @@ func (r *CoachRepository) ListMessages(ctx context.Context, conversationID strin
 		SELECT id, conversation_id, role, content, created_at
 		  FROM (
 			SELECT id, conversation_id, role, content, created_at
-			  FROM coach_messages
+			  FROM workout.coach_messages
 			 WHERE conversation_id = $1
 			 ORDER BY created_at DESC
 			 LIMIT $2

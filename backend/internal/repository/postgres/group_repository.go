@@ -20,7 +20,7 @@ var _ domain.GroupRepository = (*GroupRepository)(nil)
 
 func (r *GroupRepository) Create(ctx context.Context, g *domain.Group) error {
 	const q = `
-		INSERT INTO groups (id, name, owner_id, invite_code)
+		INSERT INTO workout.groups (id, name, owner_id, invite_code)
 		VALUES ($1, $2, $3, $4)
 		RETURNING created_at`
 
@@ -29,12 +29,12 @@ func (r *GroupRepository) Create(ctx context.Context, g *domain.Group) error {
 }
 
 func (r *GroupRepository) FindByID(ctx context.Context, id string) (*domain.Group, error) {
-	const q = `SELECT id, name, owner_id, invite_code, created_at FROM groups WHERE id = $1`
+	const q = `SELECT id, name, owner_id, invite_code, created_at FROM workout.groups WHERE id = $1`
 	return r.scanOne(ctx, "group repository: find by id", q, id)
 }
 
 func (r *GroupRepository) FindByInviteCode(ctx context.Context, code string) (*domain.Group, error) {
-	const q = `SELECT id, name, owner_id, invite_code, created_at FROM groups WHERE invite_code = $1`
+	const q = `SELECT id, name, owner_id, invite_code, created_at FROM workout.groups WHERE invite_code = $1`
 	return r.scanOne(ctx, "group repository: find by invite code", q, code)
 }
 
@@ -42,8 +42,8 @@ func (r *GroupRepository) ListByUser(ctx context.Context, userID string) ([]doma
 	// idx_group_members_user_id 로 멤버십을 좁힌 뒤 groups PK 로 조인한다.
 	const q = `
 		SELECT g.id, g.name, g.owner_id, g.invite_code, g.created_at
-		  FROM groups g
-		  JOIN group_members m ON m.group_id = g.id
+		  FROM workout.groups g
+		  JOIN workout.group_members m ON m.group_id = g.id
 		 WHERE m.user_id = $1
 		 ORDER BY g.created_at`
 
@@ -66,7 +66,7 @@ func (r *GroupRepository) ListByUser(ctx context.Context, userID string) ([]doma
 
 func (r *GroupRepository) AddMember(ctx context.Context, m *domain.GroupMember) error {
 	const q = `
-		INSERT INTO group_members (group_id, user_id, role, share_data)
+		INSERT INTO workout.group_members (group_id, user_id, role, share_data)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (group_id, user_id) DO UPDATE SET share_data = excluded.share_data
 		RETURNING joined_at`
@@ -76,7 +76,7 @@ func (r *GroupRepository) AddMember(ctx context.Context, m *domain.GroupMember) 
 }
 
 func (r *GroupRepository) RemoveMember(ctx context.Context, groupID, userID string) error {
-	const q = `DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`
+	const q = `DELETE FROM workout.group_members WHERE group_id = $1 AND user_id = $2`
 
 	tag, err := r.pool.Exec(ctx, q, groupID, userID)
 	if err != nil {
@@ -92,8 +92,8 @@ func (r *GroupRepository) ListMembers(ctx context.Context, groupID string) ([]do
 	const q = `
 		SELECT m.group_id, m.user_id, u.display_name, coalesce(u.avatar_url, ''),
 		       m.role, m.share_data, m.joined_at
-		  FROM group_members m
-		  JOIN users u ON u.id = m.user_id
+		  FROM workout.group_members m
+		  JOIN workout.profiles u ON u.id = m.user_id
 		 WHERE m.group_id = $1
 		 ORDER BY m.joined_at`
 
@@ -117,7 +117,7 @@ func (r *GroupRepository) ListMembers(ctx context.Context, groupID string) ([]do
 }
 
 func (r *GroupRepository) IsMember(ctx context.Context, groupID, userID string) (bool, error) {
-	const q = `SELECT exists(SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2)`
+	const q = `SELECT exists(SELECT 1 FROM workout.group_members WHERE group_id = $1 AND user_id = $2)`
 
 	var ok bool
 	if err := r.pool.QueryRow(ctx, q, groupID, userID).Scan(&ok); err != nil {
@@ -131,8 +131,8 @@ func (r *GroupRepository) SharesWith(ctx context.Context, viewerID, ownerID stri
 	const q = `
 		SELECT exists(
 			SELECT 1
-			  FROM group_members viewer
-			  JOIN group_members owner ON owner.group_id = viewer.group_id
+			  FROM workout.group_members viewer
+			  JOIN workout.group_members owner ON owner.group_id = viewer.group_id
 			 WHERE viewer.user_id = $1
 			   AND owner.user_id = $2
 			   AND owner.share_data

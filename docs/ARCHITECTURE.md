@@ -1,7 +1,15 @@
-# 설계 개요 — 운동 기록 앱 골격
+# 설계 개요 — 운동 기록 앱
+
+> **2026-10-16 변경: ae:p 포털 통합.** 아래 본문은 단독 앱 시절(2026-10-06)의 설계 기록이고, 다음이 바뀌었다.
+> - **인증**: 자체 JWT·refresh token·구글/카카오/네이버 소셜 로그인을 없앴다. 로그인은 ae:p 포털(Supabase Auth)이 하고,
+>   Go 백엔드는 Supabase access token 을 프로젝트 JWKS(ES256)로 검증만 한다 (`internal/platform/auth/supabase.go`).
+>   그래서 `users`·`user_identities`·`refresh_tokens` 테이블과 `oauth`·`usecase/auth` 코드는 없다.
+> - **DB**: 단독 Supabase 프로젝트 → ae:p 공용 프로젝트의 `workout` 스키마. 사용자 테이블은 `workout.profiles`
+>   (`auth.users` 와 1:1, 첫 요청 때 자동 생성). 브라우저 키 차단(RLS + 권한 회수)은 `workout` 스키마에만 건다.
+> - **웹**: 포털 아래 `/workout/` (Expo `baseUrl`, SPA). 배포는 ae:p 서버의 Caddy + pm2 + GitHub Actions ([DEPLOY.md](DEPLOY.md)).
 
 이 문서는 현재 저장된 골격이 "왜 이렇게 생겼는지"를 설명합니다.
-실행 방법은 [RUN.md](RUN.md) 를 보세요.
+실행 방법은 [README](../README.md) 를 보세요.
 
 - 작성 기준일: 2026-10-06
 - 상태: 골격(skeleton). 빌드·타입체크·유닛테스트 통과. 운동 세션 기록 기능은 미구현.

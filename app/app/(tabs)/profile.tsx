@@ -57,7 +57,7 @@ const Profile = () => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Heading eyebrow="Profile" title={user?.display_name || '프로필'} caption={user?.email || '소셜 계정'} />
+        <Heading eyebrow="Profile" title={user?.display_name || '프로필'} caption={user?.email || ''} />
 
         <Field label="표시 이름" value={displayName} onChangeText={setDisplayName} />
         <Button

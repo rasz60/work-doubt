@@ -2,13 +2,13 @@ import React from 'react';
 import { ActivityIndicator } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
 
-import { Screen } from '@/components/ui';
+import { Button, Message, Screen } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { tracking, useTheme } from '@/theme';
 
 const TabsLayout = () => {
   const theme = useTheme();
-  const { user, loading } = useAuth();
+  const { signedIn, user, loading, error, refreshUser } = useAuth();
 
   if (loading) {
     return (
@@ -17,7 +17,16 @@ const TabsLayout = () => {
       </Screen>
     );
   }
-  if (!user) return <Redirect href="/login" />;
+  if (!signedIn) return <Redirect href="/login" />;
+  // 로그인은 됐는데 백엔드에서 프로필을 못 받은 경우 (서버가 꺼졌거나 네트워크 문제)
+  if (!user) {
+    return (
+      <Screen>
+        <Message text={error || '프로필을 불러오지 못했습니다.'} tone="error" />
+        <Button title="RETRY" onPress={() => void refreshUser()} />
+      </Screen>
+    );
+  }
 
   // 아이콘 없이 영문 대문자 라벨만 쓰는 텍스트 탭바. 헤더는 각 화면의 Heading 이 대신한다.
   return (

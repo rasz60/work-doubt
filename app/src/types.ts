@@ -1,7 +1,5 @@
 // 백엔드 JSON 스키마와 1:1 로 대응하는 타입. 필드명은 서버의 snake_case 를 그대로 쓴다.
 
-export type Provider = 'local' | 'google' | 'kakao' | 'naver';
-
 export type MetricKind =
   | 'weight_kg'
   | 'height_cm'
@@ -19,17 +17,6 @@ export interface User {
   height_cm?: number;
   created_at: string;
   updated_at: string;
-}
-
-export interface TokenPair {
-  access_token: string;
-  refresh_token: string;
-  expires_at: string;
-}
-
-export interface Session {
-  user: User;
-  tokens: TokenPair;
 }
 
 export interface BodyMetric {
