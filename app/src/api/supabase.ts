@@ -20,8 +20,21 @@ export const supabase = createClient(url, anonKey, {
 /** 웹 배포본은 포털 아래(/workout/)에서 돈다. 개발 서버(expo start)는 포털이 없어 자체 로그인 화면을 쓴다 */
 export const usesPortalLogin = Platform.OS === 'web' && !__DEV__;
 
+/** 웹 배포본의 앱 루트 (app.json experiments.baseUrl) */
+const WEB_BASE = '/workout/';
+
+/**
+ * 포털 로그인 뒤 돌아올 주소. 이 앱의 /login 화면으로 돌아오면 또 포털로 보내 무한히 왕복하므로 앱 루트로 바꾸고,
+ * 끝 / 가 없는 앱 루트(/workout)는 포털이 다른 앱 주소로 알아보지 못하므로 /workout/ 으로 맞춘다
+ */
+export const portalReturnPath = (pathname: string, search: string): string => {
+  const root = WEB_BASE.replace(/\/$/, '');
+  if (pathname === root || /\/login\/?$/.test(pathname)) return WEB_BASE;
+  return pathname + search;
+};
+
 /** 포털 로그인으로 보낸다. 로그인 뒤 지금 주소로 돌아온다 */
 export const goToPortalLogin = (logout = false): void => {
-  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  const next = encodeURIComponent(portalReturnPath(window.location.pathname, window.location.search));
   window.location.replace(logout ? '/login?logout=1' : `/login?next=${next}`);
 };

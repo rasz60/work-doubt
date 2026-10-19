@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 
 import { goToPortalLogin, usesPortalLogin } from '@/api/supabase';
 import { Button, Field, Heading, Message, Screen } from '@/components/ui';
@@ -11,16 +11,20 @@ import { space, tracking, useTheme } from '@/theme';
 // 네이티브 앱과 개발 서버는 같은 ae:p 계정(Supabase)으로 여기서 로그인한다. 가입은 포털의 초대로만.
 const Login = () => {
   const theme = useTheme();
-  const { signIn } = useAuth();
+  const { signIn, signedIn, loading } = useAuth();
 
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [busy, setBusy] = useState<boolean>(false);
 
+  // 세션이 있는데 이 화면에 왔으면(포털 로그인에서 돌아온 경우 등) 포털로 다시 보내지 않고 탭으로 간다.
+  // 세션을 확인하기 전에 포털로 보내면 포털 ↔ 이 화면을 무한히 왕복한다
   useEffect(() => {
-    if (usesPortalLogin) goToPortalLogin();
-  }, []);
+    if (usesPortalLogin && !loading && !signedIn) goToPortalLogin();
+  }, [loading, signedIn]);
+
+  if (signedIn && !loading) return <Redirect href="/(tabs)" />;
 
   if (usesPortalLogin) {
     return (
