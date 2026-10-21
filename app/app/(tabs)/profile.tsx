@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 
 import { Button, Divider, Field, Heading, Message, Screen } from '@/components/ui';
 import * as api from '@/api/endpoints';
+import { Devices } from '@/features/profile/Devices';
 import { useAuth } from '@/hooks/useAuth';
 import { space, tracking, useTheme } from '@/theme';
 import type { Group, GroupMember } from '@/types';
@@ -53,7 +54,7 @@ const Profile = () => {
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={{ gap: space(4), paddingBottom: space(6) }}
+        contentContainerStyle={{ gap: space(4), paddingBottom: space(6), width: '100%', maxWidth: 720, alignSelf: 'center' }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -70,6 +71,9 @@ const Profile = () => {
             })
           }
         />
+
+        <View style={{ height: space(4) }} />
+        <Devices />
 
         <View style={{ height: space(4) }} />
         <Divider strong />

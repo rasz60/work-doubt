@@ -1,15 +1,24 @@
 import { request } from '@/api/client';
 import type {
+  ActivitySummary,
   BodyMetric,
+  CalendarDay,
   Conversation,
   ChatMessage,
+  CreatedDevice,
   Goal,
   Group,
   GroupMember,
   ListResponse,
   MetricKind,
   MetricSeries,
+  Plan,
+  PlanDay,
+  Session,
+  SessionSet,
+  SyncOverview,
   User,
+  WorkoutKind,
 } from '@/types';
 
 // ── 계정 (로그인은 ae:p 포털 · Supabase Auth) ───────────────
@@ -80,3 +89,71 @@ export const fetchConversations = (): Promise<ListResponse<Conversation>> =>
 
 export const fetchMessages = (conversationId: string): Promise<ListResponse<ChatMessage>> =>
   request<ListResponse<ChatMessage>>(`/api/v1/coach/conversations/${conversationId}/messages`);
+
+// ── 운동 계획 (주간 루틴, 고칠 때마다 새 버전) ─────────────────
+
+export interface SavePlanPayload {
+  effective_from: string;
+  title: string;
+  days: PlanDay[];
+}
+
+/** 최신 버전부터 */
+export const fetchPlans = (): Promise<ListResponse<Plan>> => request<ListResponse<Plan>>('/api/v1/plans');
+
+export const savePlan = (payload: SavePlanPayload): Promise<Plan> =>
+  request<Plan>('/api/v1/plans', { method: 'POST', body: payload });
+
+export const deletePlan = (id: string): Promise<void> => request<void>(`/api/v1/plans/${id}`, { method: 'DELETE' });
+
+// ── 수행 기록 ────────────────────────────────────────────
+
+export interface SessionPayload {
+  performed_on: string;
+  kind: WorkoutKind;
+  title?: string;
+  distance_km?: number;
+  duration_sec?: number;
+  calories_kcal?: number;
+  avg_heart_rate?: number;
+  memo?: string;
+  sets?: SessionSet[];
+}
+
+export const fetchSessions = (from?: string, to?: string): Promise<ListResponse<Session>> =>
+  request<ListResponse<Session>>('/api/v1/sessions', { query: { from, to } });
+
+export const createSession = (payload: SessionPayload): Promise<Session> =>
+  request<Session>('/api/v1/sessions', { method: 'POST', body: payload });
+
+export const updateSession = (id: string, payload: SessionPayload): Promise<Session> =>
+  request<Session>(`/api/v1/sessions/${id}`, { method: 'PUT', body: payload });
+
+export const deleteSession = (id: string): Promise<void> =>
+  request<void>(`/api/v1/sessions/${id}`, { method: 'DELETE' });
+
+// ── 잔디 · 통계 ─────────────────────────────────────────
+
+export const fetchCalendar = (from: string, to: string): Promise<ListResponse<CalendarDay>> =>
+  request<ListResponse<CalendarDay>>('/api/v1/activity/calendar', { query: { from, to } });
+
+/** month: YYYY-MM (비우면 이번 달) */
+export const fetchActivitySummary = (month?: string): Promise<ActivitySummary> =>
+  request<ActivitySummary>('/api/v1/activity/summary', { query: { month } });
+
+// ── 기기 · 앱 연동 ───────────────────────────────────────
+
+export const fetchSync = (): Promise<SyncOverview> => request<SyncOverview>('/api/v1/sync');
+
+/** Strava 에서 새 활동을 가져온다. force 가 아니면 10분에 한 번만 실제로 가져온다 */
+export const runSync = (force = false): Promise<SyncOverview> =>
+  request<SyncOverview>('/api/v1/sync/run', { method: 'POST', body: { force } });
+
+export const fetchStravaAuthorizeURL = (): Promise<{ url: string }> =>
+  request<{ url: string }>('/api/v1/sync/strava/authorize');
+
+export const createDevice = (name: string): Promise<CreatedDevice> =>
+  request<CreatedDevice>('/api/v1/sync/devices', { method: 'POST', body: { name } });
+
+export const disconnect = (id: string): Promise<void> =>
+  request<void>(`/api/v1/sync/connections/${id}`, { method: 'DELETE' });

@@ -1,83 +1,85 @@
-import React, { useState } from 'react';
-import { ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollView, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 
-import { Button, Field, Heading, Message, Screen } from '@/components/ui';
+import { Heading, Message, Screen, Segmented } from '@/components/ui';
 import * as api from '@/api/endpoints';
+import { BodyForm } from '@/features/record/BodyForm';
+import { PlanEditor } from '@/features/record/PlanEditor';
+import { SessionForm } from '@/features/record/SessionForm';
+import { isDateString } from '@/lib/date';
 import { space } from '@/theme';
+import type { Plan } from '@/types';
 
-const today = (): string => new Date().toISOString().slice(0, 10);
+type Tab = 'log' | 'plan' | 'body';
 
-// 숫자 입력은 빈 문자열을 undefined 로 바꿔 서버에 보내지 않는다(부분 입력 허용).
-const toNumber = (value: string): number | undefined => {
-  if (value.trim() === '') return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'log', label: '수행 기록' },
+  { value: 'plan', label: '운동 계획' },
+  { value: 'body', label: '신체' },
+];
+
+const HEADINGS: Record<Tab, { eyebrow: string; title: string }> = {
+  log: { eyebrow: 'Record · Log', title: '수행 기록' },
+  plan: { eyebrow: 'Record · Plan', title: '운동 계획' },
+  body: { eyebrow: 'Record · Body', title: '신체 지표' },
 };
 
-const Record = () => {
-  const [measuredAt, setMeasuredAt] = useState<string>(today());
-  const [height, setHeight] = useState<string>('');
-  const [weight, setWeight] = useState<string>('');
-  const [muscle, setMuscle] = useState<string>('');
-  const [fat, setFat] = useState<string>('');
-  const [memo, setMemo] = useState<string>('');
-  const [result, setResult] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const [busy, setBusy] = useState<boolean>(false);
+const isTab = (value: unknown): value is Tab => value === 'log' || value === 'plan' || value === 'body';
 
-  const submit = async (): Promise<void> => {
-    setBusy(true);
-    setError('');
-    setResult('');
+// RECORD: 일자별 수행 기록 · 주간 운동 계획(이력) · 신체 지표.
+// HOME 의 잔디에서 날짜를 눌러 들어오면 ?tab=log&date=YYYY-MM-DD 로 그 날짜 기록을 시작한다.
+const Record = () => {
+  const params = useLocalSearchParams<{ tab?: string; date?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+
+  const [tab, setTab] = useState<Tab>(isTab(params.tab) ? params.tab : 'log');
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    if (isTab(params.tab)) setTab(params.tab);
+  }, [params.tab, params.date]);
+
+  const loadPlans = useCallback(async (): Promise<void> => {
     try {
-      const saved = await api.recordMetric({
-        measured_at: measuredAt,
-        height_cm: toNumber(height),
-        weight_kg: toNumber(weight),
-        skeletal_muscle_kg: toNumber(muscle),
-        body_fat_percentage: toNumber(fat),
-        memo: memo || undefined,
-      });
-      setResult(
-        saved.bmi ? `저장했습니다. BMI ${saved.bmi.toFixed(1)}` : '저장했습니다.',
-      );
-      setMemo('');
+      setPlans((await api.fetchPlans()).items);
+      setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
-    } finally {
-      setBusy(false);
+      setError(err instanceof Error ? err.message : '계획을 불러오지 못했습니다.');
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadPlans();
+    }, [loadPlans]),
+  );
+
+  const date = typeof params.date === 'string' && isDateString(params.date) ? params.date : undefined;
 
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={{ gap: space(5), paddingBottom: space(6) }}
+        ref={scrollRef}
+        contentContainerStyle={{ gap: space(5), paddingBottom: space(8), width: '100%', maxWidth: 720, alignSelf: 'center' }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Heading
-          eyebrow="Record"
-          title="지표 입력"
-          caption="같은 날짜를 다시 저장하면 기존 기록을 덮어씁니다. BMI 는 키와 체중으로 자동 계산됩니다."
-        />
-
-        <Field label="측정일 (YYYY-MM-DD)" value={measuredAt} onChangeText={setMeasuredAt} />
-        <Field label="키 (cm)" value={height} onChangeText={setHeight} keyboardType="decimal-pad" />
-        <Field label="체중 (kg)" value={weight} onChangeText={setWeight} keyboardType="decimal-pad" />
-        <Field
-          label="골격근량 (kg)"
-          value={muscle}
-          onChangeText={setMuscle}
-          keyboardType="decimal-pad"
-        />
-        <Field label="체지방률 (%)" value={fat} onChangeText={setFat} keyboardType="decimal-pad" />
-        <Field label="메모" value={memo} onChangeText={setMemo} multiline autoCapitalize="sentences" />
-
+        <Heading eyebrow={HEADINGS[tab].eyebrow} title={HEADINGS[tab].title} />
+        <Segmented options={TABS} value={tab} onChange={setTab} />
         <Message text={error} tone="error" />
-        <Message text={result} />
 
-        <Button title="SAVE" onPress={() => void submit()} disabled={busy} />
+        {/* 탭을 오가도 쓰던 입력이 남도록 셋 다 띄워 두고 보이는 것만 바꾼다 */}
+        <View style={{ display: tab === 'log' ? 'flex' : 'none' }}>
+          <SessionForm plans={plans} initialDate={date} onEditStart={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
+        </View>
+        <View style={{ display: tab === 'plan' ? 'flex' : 'none' }}>
+          <PlanEditor plans={plans} onSaved={loadPlans} />
+        </View>
+        <View style={{ display: tab === 'body' ? 'flex' : 'none' }}>
+          <BodyForm />
+        </View>
       </ScrollView>
     </Screen>
   );

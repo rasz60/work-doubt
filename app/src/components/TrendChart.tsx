@@ -3,14 +3,19 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { space, tracking, useTheme } from '@/theme';
-import type { MetricSeries } from '@/types';
+import type { MetricPoint, SeriesStats } from '@/types';
 
 interface TrendChartProps {
-  series: MetricSeries;
+  series: { points: MetricPoint[]; stats: SeriesStats };
   label: string;
   unit?: string;
   height?: number;
   width?: number;
+  /** 값 표시 (기본: 소수 한 자리 + unit) */
+  format?: (value: number) => string;
+  /** 변동폭 표시 (기본: 부호 + 소수 한 자리 + unit) */
+  formatDelta?: (delta: number) => string;
+  emptyText?: string;
 }
 
 interface Scaled {
@@ -34,7 +39,12 @@ export const TrendChart = ({
   unit = '',
   height = 180,
   width = 320,
+  format,
+  formatDelta,
+  emptyText = '기록이 없습니다. 지표를 입력하면 변동폭이 표시됩니다.',
 }: TrendChartProps) => {
+  const show = format ?? ((value: number): string => `${value.toFixed(1)}${unit}`);
+  const showDelta = formatDelta ?? ((delta: number): string => `${delta > 0 ? '+' : ''}${delta.toFixed(1)}${unit}`);
   const theme = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
 
@@ -70,7 +80,7 @@ export const TrendChart = ({
     return (
       <View style={styles.card}>
         <Text style={styles.title}>{label}</Text>
-        <Text style={styles.empty}>기록이 없습니다. 지표를 입력하면 변동폭이 표시됩니다.</Text>
+        <Text style={styles.empty}>{emptyText}</Text>
       </View>
     );
   }
@@ -92,11 +102,7 @@ export const TrendChart = ({
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>{label}</Text>
-        <Text style={[styles.delta, { color: deltaColor }]}>
-          {delta > 0 ? '+' : ''}
-          {delta.toFixed(1)}
-          {unit}
-        </Text>
+        <Text style={[styles.delta, { color: deltaColor }]}>{showDelta(delta)}</Text>
       </View>
 
       {/* 터치/클릭 지점에서 가장 가까운 점을 선택한다. 웹과 네이티브 모두 responder 로 동작한다. */}
@@ -147,18 +153,15 @@ export const TrendChart = ({
 
       <View style={styles.footer}>
         <Text style={styles.axisLabel}>
-          {formatDate(points[0]?.measuredAt)} · {first.toFixed(1)}
-          {unit}
+          {formatDate(points[0]?.measuredAt)} · {show(first)}
         </Text>
         {active ? (
           <Text style={styles.selectedLabel}>
-            {formatDate(active.measuredAt)} · {active.value.toFixed(1)}
-            {unit}
+            {formatDate(active.measuredAt)} · {show(active.value)}
           </Text>
         ) : (
           <Text style={styles.axisLabel}>
-            {formatDate(points[points.length - 1]?.measuredAt)} · {last.toFixed(1)}
-            {unit}
+            {formatDate(points[points.length - 1]?.measuredAt)} · {show(last)}
           </Text>
         )}
       </View>

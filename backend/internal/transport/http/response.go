@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/devsixt/workout/backend/internal/domain"
 )
@@ -47,7 +48,18 @@ func writeError(w http.ResponseWriter, err error) {
 		writeJSON(w, status, errorBody{Error: code, Message: "요청을 처리할 수 없습니다."})
 		return
 	}
-	writeJSON(w, status, errorBody{Error: code, Message: err.Error()})
+	writeJSON(w, status, errorBody{Error: code, Message: userMessage(err)})
+}
+
+// userMessage 는 "…: invalid input" 처럼 붙는 센티널 꼬리를 떼어 화면에 보여 줄 문장만 남긴다.
+func userMessage(err error) string {
+	msg := err.Error()
+	for _, sentinel := range []error{
+		domain.ErrInvalidInput, domain.ErrUnauthorized, domain.ErrForbidden, domain.ErrNotFound, domain.ErrConflict,
+	} {
+		msg = strings.TrimSuffix(msg, ": "+sentinel.Error())
+	}
+	return msg
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {

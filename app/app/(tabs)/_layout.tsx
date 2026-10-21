@@ -49,7 +49,7 @@ const TabsLayout = () => {
         sceneStyle: { backgroundColor: theme.bg },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'TREND' }} />
+      <Tabs.Screen name="index" options={{ title: 'HOME' }} />
       <Tabs.Screen name="record" options={{ title: 'RECORD' }} />
       <Tabs.Screen name="coach" options={{ title: 'COACH' }} />
       <Tabs.Screen name="profile" options={{ title: 'PROFILE' }} />

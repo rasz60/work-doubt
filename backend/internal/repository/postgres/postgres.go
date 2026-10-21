@@ -105,6 +105,8 @@ func translate(op string, err error) error {
 			return fmt.Errorf("%s: %s: %w", op, pgErr.ConstraintName, domain.ErrInvalidInput)
 		case "23514": // check_violation
 			return fmt.Errorf("%s: %s: %w", op, pgErr.ConstraintName, domain.ErrInvalidInput)
+		case "22P02": // invalid_text_representation — 주소의 id 가 uuid 가 아니면 없는 것과 같다
+			return fmt.Errorf("%s: %w", op, domain.ErrNotFound)
 		}
 	}
 	return fmt.Errorf("%s: %w", op, err)

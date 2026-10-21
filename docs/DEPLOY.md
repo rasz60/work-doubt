@@ -10,7 +10,9 @@ https://ae2p.duckdns.org/api/workout/*  → 127.0.0.1:8091                 (pm2:
 
 ## 1. Supabase (1회)
 
-1. **SQL Editor** 에서 [backend/migrations/0001_workout_schema.sql](../backend/migrations/0001_workout_schema.sql) 실행
+1. **SQL Editor** 에서 마이그레이션을 번호 순서대로 한 번씩 실행
+   - [0001_workout_schema.sql](../backend/migrations/0001_workout_schema.sql) — 프로필 · 그룹 · 신체 지표 · AI 코치
+   - [0002_activity.sql](../backend/migrations/0002_activity.sql) — 운동 계획 · 수행 기록 · 기기 연동 (**0002 를 실행하기 전에 새 백엔드를 배포하면 HOME · RECORD 가 오류를 낸다**)
    - `workout` 스키마만 만든다. 업무일지(`public`)는 건드리지 않는다
    - **Settings → API → Exposed schemas 에 `workout` 을 넣지 않는다** (브라우저 REST 노출 금지)
 2. **Connect → Session pooler** 연결 문자열을 복사해 둔다 (DB 비밀번호를 모르면 Settings → Database 에서 재설정)
@@ -81,6 +83,19 @@ GitHub `rasz60/work-doubt` → Settings → Secrets and variables → Actions �
 `DEPLOY_HOST`(ae2p.duckdns.org) · `DEPLOY_USER`(ubuntu) · `DEPLOY_SSH_KEY` · `DEPLOY_KNOWN_HOSTS`.
 같은 화면의 **Variables** 탭에 웹 빌드용 공개 값 `EXPO_PUBLIC_SUPABASE_URL` · `EXPO_PUBLIC_SUPABASE_ANON_KEY` (포털과 같은 값).
 서버의 `app/.env` 는 더 이상 빌드에 쓰이지 않는다.
+
+## 7. 기기 연동 (선택)
+
+**기기 토큰**(폰 자동화 → 서버)은 설정이 필요 없다. PROFILE › Devices 에서 토큰을 만들면 보낼 주소와 형식이 나온다.
+
+**Strava**(서버가 10분마다 가져옴)는 Strava 앱 키가 있어야 켜진다.
+
+1. https://www.strava.com/settings/api 에서 앱을 만든다. **Authorization Callback Domain** 에 `ae2p.duckdns.org`
+2. 서버 `~/work-doubt/.env` 에 `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` 를 넣고 `bash ~/work-doubt/scripts/deploy.sh` (pm2 만 다시 띄운다)
+3. PROFILE › Devices › CONNECT STRAVA
+
+돌아오는 주소는 `PUBLIC_URL`(기본 `https://ae2p.duckdns.org`) + `/api/workout/api/v1/sync/strava/callback` 이다.
+새 Strava 앱은 처음에 연결할 수 있는 선수 수가 적다(본인 + 몇 명). 그룹 구성원까지 쓰려면 Strava 에 한도 상향을 신청한다.
 
 ## 운영
 

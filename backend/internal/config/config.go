@@ -24,7 +24,32 @@ type Config struct {
 
 	AnthropicAPIKey string
 	ClaudeModel     string
+
+	// PublicURL 은 사용자가 여는 도메인이다 (https://ae2p.duckdns.org). 앱은 /workout, API 는 /api/workout 아래에 있다.
+	// 기기 연동 주소 · Strava 가 돌려보낼 주소를 여기서 만든다.
+	PublicURL string
+	// Timezone 은 "오늘"을 정하는 시간대다 (잔디 · 칼로리). 기본 Asia/Seoul
+	Timezone string
+
+	// Strava 앱 키 (https://www.strava.com/settings/api). 비워 두면 Strava 연동을 숨긴다.
+	StravaClientID     string
+	StravaClientSecret string
 }
+
+// AppURL 은 웹 앱 주소다 (끝 / 없음).
+func (c *Config) AppURL() string { return c.PublicURL + "/workout" }
+
+// apiURL 은 브라우저 · 기기에서 본 이 API 의 주소다 (Caddy 가 /api/workout 을 떼고 넘긴다).
+func (c *Config) apiURL() string { return c.PublicURL + "/api/workout" }
+
+// IngestURL 은 기기 자동화가 운동 기록을 보내는 주소다.
+func (c *Config) IngestURL() string { return c.apiURL() + "/api/v1/sync/ingest" }
+
+// StravaRedirectURL 은 Strava 동의 뒤 돌아오는 주소다. Strava 앱의 Authorization Callback Domain 에 이 도메인을 넣는다.
+func (c *Config) StravaRedirectURL() string { return c.apiURL() + "/api/v1/sync/strava/callback" }
+
+// StravaEnabled 는 Strava 앱 키가 둘 다 있는지다.
+func (c *Config) StravaEnabled() bool { return c.StravaClientID != "" && c.StravaClientSecret != "" }
 
 // Load 는 환경변수에서 설정을 읽는다. 필수값이 없으면 에러를 반환한다.
 func Load() (*Config, error) {
@@ -37,6 +62,11 @@ func Load() (*Config, error) {
 		SupabaseURL:     strings.TrimRight(os.Getenv("SUPABASE_URL"), "/"),
 		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
 		ClaudeModel:     env("CLAUDE_MODEL", "claude-opus-5"),
+		PublicURL:       strings.TrimRight(env("PUBLIC_URL", "https://ae2p.duckdns.org"), "/"),
+		Timezone:        env("TIMEZONE", "Asia/Seoul"),
+
+		StravaClientID:     strings.TrimSpace(os.Getenv("STRAVA_CLIENT_ID")),
+		StravaClientSecret: strings.TrimSpace(os.Getenv("STRAVA_CLIENT_SECRET")),
 	}
 
 	if cfg.DatabaseURL == "" {
