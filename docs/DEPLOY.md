@@ -17,13 +17,11 @@ https://ae2p.duckdns.org/api/workout/*  → 127.0.0.1:8091                 (pm2:
 
 ## 2. 서버 준비 (1회)
 
-```bash
-# Go 설치 (ARM 서버)
-GO_VER=1.26.2
-curl -fsSL https://go.dev/dl/go${GO_VER}.linux-arm64.tar.gz -o /tmp/go.tgz
-sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf /tmp/go.tgz
-/usr/local/go/bin/go version
+서버에서는 **빌드하지 않는다** (Go · Expo 빌드는 GitHub Actions). 서버(메모리 1GB)에서 Go 백엔드를 컴파일하면
+Anthropic SDK 패키지 하나에서 컴파일러가 1.2~1.9GB, Expo 웹 빌드는 Node 가 약 1.1GB 를 써서 스왑으로 버티다 서버가 멈췄다 (2026-10-20).
+그래서 서버에는 Go 를 설치하지 않아도 되고, node 는 pm2 용으로만 있으면 된다.
 
+```bash
 # 저장소 받기 (읽기 전용 Deploy key — ae2p 와 같은 방식, ssh 별칭 github-workout)
 ssh-keygen -t ed25519 -C "oracle-workout" -f ~/.ssh/workout_deploy -N ""
 cat >> ~/.ssh/config <<'EOF'
@@ -42,13 +40,14 @@ git clone github-workout:rasz60/work-doubt.git ~/work-doubt
 ```bash
 cd ~/work-doubt
 cp .env.example .env          # PORT=8091, SUPABASE_URL, DATABASE_URL(풀러), ANTHROPIC_API_KEY
-cp app/.env.example app/.env  # EXPO_PUBLIC_SUPABASE_URL / _ANON_KEY (포털과 같은 값), EXPO_PUBLIC_API_BASE_URL 은 비움
+# app/.env 는 서버에 필요 없다 (웹은 Actions 가 저장소 Variables 로 빌드한다)
 ```
 
 ## 4. 첫 배포
 
+6번(자동 배포)을 설정한 뒤 GitHub → Actions → deploy → **Run workflow**. 러너가 빌드한 묶음을 서버가 받아 바꿔 끼우고 pm2 를 띄운다.
+
 ```bash
-bash scripts/deploy.sh        # Go 빌드 → Expo 웹 빌드 → pm2 시작
 curl -s http://127.0.0.1:8091/healthz    # {"status":"ok"}
 ```
 
@@ -63,7 +62,12 @@ sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 
 ## 6. 자동 배포 (GitHub Actions)
 
-`main` 에 push → Go vet·test + 앱 타입체크 → 서버에 SSH 로 접속해 `scripts/deploy.sh` 실행.
+`main` 에 push → Go vet·test + 앱 타입체크 → **러너에서** Go 바이너리(linux amd64 · arm64)와 Expo 웹 빌드
+→ 묶음(tar.gz)을 SSH 표준입력으로 서버에 보낸다 → 서버의 `scripts/deploy.sh` 가 받아서
+코드를 빌드 커밋에 맞추고, 서버 아키텍처에 맞는 바이너리와 웹을 바꿔 끼우고, pm2 재시작 → `/healthz` 확인
+(30초 안에 응답이 없으면 이전 바이너리 · 웹으로 되돌린다).
+
+`deploy.sh` 안전장치: 전체 10분 제한(`DEPLOY_TIMEOUT`, 넘으면 띄운 프로세스까지 끝낸다) · 동시 배포 잠금(`/tmp/work-doubt-deploy.lock`).
 
 ```bash
 # (서버) Actions 전용 키를 만들고, 이 키로는 운동기록 deploy.sh 만 실행되게 묶는다
@@ -75,12 +79,14 @@ ssh-keyscan -t ed25519 localhost | sed 's/^localhost/ae2p.duckdns.org/'   # → 
 
 GitHub `rasz60/work-doubt` → Settings → Secrets and variables → Actions 에
 `DEPLOY_HOST`(ae2p.duckdns.org) · `DEPLOY_USER`(ubuntu) · `DEPLOY_SSH_KEY` · `DEPLOY_KNOWN_HOSTS`.
+같은 화면의 **Variables** 탭에 웹 빌드용 공개 값 `EXPO_PUBLIC_SUPABASE_URL` · `EXPO_PUBLIC_SUPABASE_ANON_KEY` (포털과 같은 값).
+서버의 `app/.env` 는 더 이상 빌드에 쓰이지 않는다.
 
 ## 운영
 
 ```bash
 pm2 logs workout-api --lines 50 --nostream
-bash ~/work-doubt/scripts/deploy.sh       # 수동 배포 (.env 를 바꾼 뒤에도 이걸로 다시 띄운다)
+bash ~/work-doubt/scripts/deploy.sh       # .env 를 바꾼 뒤 다시 띄우기 (빌드하지 않는다. 새 코드는 Actions → deploy → Run workflow)
 ```
 
 예전 단독 서버와 예전 Supabase 프로젝트(`hsykrtillmitbhkyzruq`)는 이 배포가 확인되면 내려도 됩니다 (옮길 데이터 없음).

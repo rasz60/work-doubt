@@ -13,6 +13,8 @@
 node_modules/
 .expo/
 dist/
+/app/dist.new/
+/app/dist.prev/
 web-build/
 *.log
 npm-debug.log*

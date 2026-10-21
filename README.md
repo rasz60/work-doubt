@@ -49,7 +49,7 @@ work-doubt/
 │  ├─ public/index.html          # 웹 템플릿: 포털 로딩 화면 + 앱 전환 버튼
 │  ├─ app/                       # 화면 (login · (tabs)/ 추세 · 기록 · 코치 · 프로필)
 │  └─ src/api/supabase.ts        # 세션 (포털과 공유)
-├─ scripts/deploy.sh             # 서버 배포 (GitHub Actions 가 호출)
+├─ scripts/deploy.sh             # 서버 배포: Actions 가 빌드한 묶음을 받아 바꿔 끼운다 (서버에서는 빌드하지 않음)
 └─ ecosystem.config.cjs          # pm2
 ```
 
