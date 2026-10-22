@@ -68,7 +68,7 @@ type ActivityProvider interface {
 	AuthURL(state string) string
 	Exchange(ctx context.Context, code string) (*OAuthToken, error)
 	Refresh(ctx context.Context, refreshToken string) (*OAuthToken, error)
-	// Activities 는 after 이후에 시작한 활동을 준다.
-	Activities(ctx context.Context, accessToken string, after time.Time) ([]ExternalActivity, error)
+	// Activities 는 after 이후 · before 이전에 시작한 활동을 준다. before 가 zero 면 끝 제한이 없다.
+	Activities(ctx context.Context, accessToken string, after, before time.Time) ([]ExternalActivity, error)
 	Revoke(ctx context.Context, accessToken string) error
 }

@@ -2,90 +2,47 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 
-import { ActivityGrid, ActivityLegend, STATUS_LABELS, describePlan, describeSession } from '@/components/ActivityGrid';
+import { ActivityGrid, ActivityLegend } from '@/components/ActivityGrid';
 import { TrendChart } from '@/components/TrendChart';
-import { Heading, Message, ProgressBar, Screen, SectionTitle, Segmented, Stat, TextButton } from '@/components/ui';
+import { Heading, Message, ProgressBar, Screen, SectionTitle, Stat, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
-import {
-  addDays,
-  addMonths,
-  endOfMonth,
-  formatKm,
-  formatLongDate,
-  formatMonth,
-  formatNumber,
-  formatPace,
-  formatShortDate,
-  monthOf,
-  startOfMonth,
-  startOfWeek,
-  todayString,
-} from '@/lib/date';
+import { DayDetail } from '@/features/calendar/DayDetail';
+import { useCalendar } from '@/features/calendar/useCalendar';
+import { addDays, formatKm, formatMonth, formatNumber, formatPace, formatShortDate, monthOf, startOfWeek, todayString } from '@/lib/date';
 import { space, tracking, useTheme } from '@/theme';
-import { KIND_LABELS, SOURCE_LABELS, type ActivitySummary, type CalendarDay, type ExerciseStat } from '@/types';
-
-type Mode = 'week' | 'month';
-
-const MODES: { value: Mode; label: string }[] = [
-  { value: 'week', label: '주' },
-  { value: 'month', label: '월' },
-];
-
-const visibleRange = (mode: Mode, anchor: string): { from: string; to: string } => {
-  if (mode === 'week') {
-    const from = startOfWeek(anchor);
-    return { from, to: addDays(from, 6) };
-  }
-  // 달력은 월요일부터 일요일까지 꽉 찬 주로 보여 준다
-  const month = monthOf(anchor);
-  return { from: startOfWeek(startOfMonth(month)), to: addDays(startOfWeek(endOfMonth(month)), 6) };
-};
+import type { ActivitySummary, ExerciseStat } from '@/types';
 
 const signed = (n: number, digits = 1): string => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${Math.abs(n).toFixed(digits)}`;
 
-// 메인: ① 운동 체크(계획 대비 수행 잔디) ② 운동 기록 세부(칼로리 · 러닝 · 웨이트 수행 능력)
+// t 는 같은 탭 · 날짜로 다시 눌러도 RECORD 가 알아채게 붙인다
+const goRecord = (params: Record<string, string>): void =>
+  router.push({ pathname: '/record', params: { ...params, t: String(Date.now()) } });
+
+// 메인: ① 운동 체크(이번 주 잔디 한 줄 — 더보기는 RECORD › 캘린더) ② 운동 기록 세부(칼로리 · 러닝 · 웨이트 수행 능력)
 const Home = () => {
   const theme = useTheme();
   const today = todayString();
 
-  const [mode, setMode] = useState<Mode>('month');
-  const [anchor, setAnchor] = useState<string>(today);
+  const [weekStart, setWeekStart] = useState<string>(startOfWeek(today));
   const [selected, setSelected] = useState<string>(today);
-  const [days, setDays] = useState<CalendarDay[]>([]);
   const [summary, setSummary] = useState<ActivitySummary | null>(null);
+  const [summaryError, setSummaryError] = useState<string>('');
   const [exercise, setExercise] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
   const [width, setWidth] = useState<number>(0);
 
-  const { from, to } = visibleRange(mode, anchor);
-  const month = monthOf(anchor);
-
-  const loadCalendar = useCallback(async (): Promise<void> => {
-    try {
-      setDays((await api.fetchCalendar(from, to)).items);
-      setError('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '운동 기록을 불러오지 못했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  }, [from, to]);
+  const weekEnd = addDays(weekStart, 6);
+  const month = monthOf(today);
+  const { days, loading, error, reload } = useCalendar(weekStart, weekEnd);
 
   const loadSummary = useCallback(async (): Promise<void> => {
     try {
       setSummary(await api.fetchActivitySummary(month));
+      setSummaryError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '통계를 불러오지 못했습니다.');
+      setSummaryError(err instanceof Error ? err.message : '통계를 불러오지 못했습니다.');
     }
   }, [month]);
 
-  // 다른 탭에서 기록 · 계획을 바꾸고 돌아오면 다시 읽는다
-  useFocusEffect(
-    useCallback(() => {
-      void loadCalendar();
-    }, [loadCalendar]),
-  );
   useFocusEffect(
     useCallback(() => {
       void loadSummary();
@@ -101,30 +58,23 @@ const Home = () => {
           (c) => c.provider === 'strava' && c.last_synced_at && Date.now() - new Date(c.last_synced_at).getTime() < 60_000,
         );
         if (fresh) {
-          void loadCalendar();
+          void reload();
           void loadSummary();
         }
       })
       .catch(() => undefined); // 동기화 실패는 PROFILE 의 연결 상태에 남는다
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const move = (step: number): void => {
-    const next = mode === 'month' ? startOfMonth(addMonths(month, step)) : addDays(anchor, step * 7);
-    setAnchor(next);
-    const range = visibleRange(mode, next);
-    if (selected < range.from || selected > range.to) setSelected(mode === 'month' ? next : range.from);
-  };
-
-  const goToday = (): void => {
-    setAnchor(today);
-    setSelected(today);
+  const moveWeek = (step: number): void => {
+    const next = addDays(weekStart, step * 7);
+    setWeekStart(next);
+    setSelected(next <= today && today <= addDays(next, 6) ? today : next);
   };
 
   const selectedDay = days.find((d) => d.date === selected);
-  const rangeLabel = mode === 'month' ? formatMonth(month) : `${formatShortDate(from)} – ${formatShortDate(to)}`;
-
   const exercises = summary?.exercises ?? [];
   const activeExercise = exercises.find((e) => e.name === exercise) ?? exercises[0];
+  const isThisWeek = weekStart === startOfWeek(today);
 
   return (
     <Screen>
@@ -138,7 +88,7 @@ const Home = () => {
             <RefreshControl
               refreshing={false}
               onRefresh={() => {
-                void loadCalendar();
+                void reload();
                 void loadSummary();
               }}
               tintColor={theme.text}
@@ -146,27 +96,36 @@ const Home = () => {
           }
         >
           <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-            <Heading eyebrow="Home · Workout Check" title="운동 체크" caption="계획한 날에 운동했는지 잔디로 보여 줍니다. 칸을 누르면 그날 기록이 보입니다." />
+            <Heading eyebrow="Home · Workout Check" title="운동 체크" caption="이번 주 계획대로 운동했는지 보여 줍니다. 칸을 누르면 그날 기록이 보입니다." />
           </View>
 
-          <Message text={error} tone="error" />
+          <Message text={error || summaryError} tone="error" />
 
-          {/* ① 운동 체크 */}
+          {/* ① 운동 체크: 달력의 한 줄(1주) */}
           <View style={{ gap: space(3) }}>
-            <Segmented options={MODES} value={mode} onChange={setMode} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Pressable onPress={() => move(-1)} hitSlop={10} accessibilityLabel="이전">
-                <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800', paddingHorizontal: space(2) }}>‹</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+              <Pressable onPress={() => moveWeek(-1)} hitSlop={10} accessibilityLabel="지난주">
+                <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800', paddingHorizontal: space(1) }}>‹</Text>
               </Pressable>
-              <Pressable onPress={goToday} accessibilityLabel="오늘로">
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', letterSpacing: tracking.tight }}>{rangeLabel}</Text>
+              <Pressable
+                onPress={() => {
+                  setWeekStart(startOfWeek(today));
+                  setSelected(today);
+                }}
+                accessibilityLabel="이번 주로"
+              >
+                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800', letterSpacing: tracking.tight }}>
+                  {isThisWeek ? '이번 주' : formatMonth(monthOf(weekStart))} · {formatShortDate(weekStart)} – {formatShortDate(weekEnd)}
+                </Text>
               </Pressable>
-              <Pressable onPress={() => move(1)} hitSlop={10} accessibilityLabel="다음">
-                <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800', paddingHorizontal: space(2) }}>›</Text>
+              <Pressable onPress={() => moveWeek(1)} hitSlop={10} accessibilityLabel="다음 주">
+                <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800', paddingHorizontal: space(1) }}>›</Text>
               </Pressable>
+              <View style={{ flex: 1 }} />
+              <TextButton title="더보기 ›" onPress={() => goRecord({ tab: 'calendar' })} />
             </View>
 
-            <ActivityGrid mode={mode} days={days} month={month} today={today} selected={selected} onSelect={setSelected} />
+            <ActivityGrid mode="month" days={days} today={today} selected={selected} onSelect={setSelected} />
             <ActivityLegend />
 
             {summary && summary.planned_days > 0 ? (
@@ -175,11 +134,13 @@ const Home = () => {
               </Text>
             ) : null}
             {summary && !summary.current_plan_id ? (
-              <Message text="아직 운동 계획이 없습니다. RECORD › 계획에서 요일별 루틴을 정하면 잔디가 계획 기준으로 채워집니다." />
+              <Message text="아직 운동 계획이 없습니다. RECORD › 운동 계획에서 요일별 루틴을 정하면 잔디가 계획 기준으로 채워집니다." />
             ) : null}
           </View>
 
-          {selectedDay ? <DayDetail day={selectedDay} /> : null}
+          {selectedDay ? (
+            <DayDetail day={selectedDay} onRecord={(date) => goRecord({ tab: 'log', date })} onPlan={() => goRecord({ tab: 'plan' })} />
+          ) : null}
 
           {/* ② 운동 기록 세부 */}
           {summary ? (
@@ -192,45 +153,6 @@ const Home = () => {
         </ScrollView>
       )}
     </Screen>
-  );
-};
-
-interface DayDetailProps {
-  day: CalendarDay;
-}
-
-const DayDetail = ({ day }: DayDetailProps) => {
-  const theme = useTheme();
-  const status = day.status === 'partial' ? `일부 ${Math.round(day.achievement * 100)}%` : STATUS_LABELS[day.status];
-
-  return (
-    <View style={{ gap: space(3) }}>
-      <SectionTitle
-        title={formatLongDate(day.date)}
-        right={<Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>{status}</Text>}
-      />
-      <Text style={{ color: theme.textMuted, fontSize: 13 }}>계획 · {describePlan(day.planned)}</Text>
-      {day.sessions.length === 0 ? (
-        <Text style={{ color: theme.textMuted, fontSize: 13 }}>기록 없음</Text>
-      ) : (
-        day.sessions.map((s) => (
-          <View key={s.id} style={{ flexDirection: 'row', gap: space(2), alignItems: 'baseline' }}>
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800', width: 44 }}>{KIND_LABELS[s.kind]}</Text>
-            <Text style={{ color: theme.text, fontSize: 13, flex: 1 }}>{describeSession(s)}</Text>
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>{SOURCE_LABELS[s.source]}</Text>
-          </View>
-        ))
-      )}
-      <View style={{ flexDirection: 'row', gap: space(4) }}>
-        <TextButton
-          title="+ 이날 기록하기"
-          onPress={() => router.push({ pathname: '/record', params: { tab: 'log', date: day.date } })}
-        />
-        {!day.planned ? (
-          <TextButton title="계획 세우기" tone="muted" onPress={() => router.push({ pathname: '/record', params: { tab: 'plan' } })} />
-        ) : null}
-      </View>
-    </View>
   );
 };
 

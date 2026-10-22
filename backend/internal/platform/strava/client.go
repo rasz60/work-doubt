@@ -21,8 +21,8 @@ import (
 const (
 	defaultOAuthBase = "https://www.strava.com/oauth"
 	defaultAPIBase   = "https://www.strava.com/api/v3"
-	perPage          = 100
-	maxPages         = 5 // 한 번에 최대 500개 (첫 동기화 90일이면 충분하다)
+	perPage          = 200 // Strava 가 허용하는 최대
+	maxPages         = 20  // 한 번에 최대 4000개. Strava 읽기 한도(15분 100회)를 넘지 않는다
 )
 
 type Client struct {
@@ -123,13 +123,16 @@ type activity struct {
 	Calories         float64 `json:"calories"` // 목록 응답에는 보통 없다
 }
 
-func (c *Client) Activities(ctx context.Context, accessToken string, after time.Time) ([]domain.ExternalActivity, error) {
+func (c *Client) Activities(ctx context.Context, accessToken string, after, before time.Time) ([]domain.ExternalActivity, error) {
 	out := make([]domain.ExternalActivity, 0, perPage)
 	for page := 1; page <= maxPages; page++ {
 		q := url.Values{
-			"after":    {strconv.FormatInt(after.Unix(), 10)},
+			"after":    {strconv.FormatInt(max(after.Unix(), 0), 10)},
 			"per_page": {strconv.Itoa(perPage)},
 			"page":     {strconv.Itoa(page)},
+		}
+		if !before.IsZero() {
+			q.Set("before", strconv.FormatInt(before.Unix(), 10))
 		}
 		var batch []activity
 		if err := c.do(ctx, "activities", http.MethodGet, c.apiBase+"/athlete/activities?"+q.Encode(), accessToken, nil, &batch); err != nil {

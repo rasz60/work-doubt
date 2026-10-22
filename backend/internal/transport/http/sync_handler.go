@@ -62,6 +62,26 @@ func (h *SyncHandler) Run(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, syncOverview{StravaEnabled: h.sync.StravaEnabled(), IngestURL: h.ingestURL, Connections: conns})
 }
 
+type importRequest struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+// Import 는 POST /api/v1/sync/connections/{id}/import — 날짜(from=to) · 기간 · 전체(둘 다 비움)의 활동을 가져온다.
+func (h *SyncHandler) Import(w http.ResponseWriter, r *http.Request) {
+	var req importRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, err)
+		return
+	}
+	result, err := h.sync.Import(r.Context(), userID(r), r.PathValue("id"), req.From, req.To)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 func (h *SyncHandler) Disconnect(w http.ResponseWriter, r *http.Request) {
 	if err := h.sync.Disconnect(r.Context(), userID(r), r.PathValue("id")); err != nil {
 		writeError(w, err)

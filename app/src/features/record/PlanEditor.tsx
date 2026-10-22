@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { describePlan } from '@/components/ActivityGrid';
 import { Button, Chip, Field, Message, MiniInput, SectionTitle, TextButton } from '@/components/ui';
@@ -8,7 +8,9 @@ import { addDays, formatShortDate, todayString, weekdayLabel } from '@/lib/date'
 import { space, tracking, useTheme } from '@/theme';
 import { KIND_LABELS, type Plan, type PlanKind } from '@/types';
 
-import { emptyExercise, examplePlan, fromDraft, toDraft, type DayDraft, type ExerciseDraft, type PlanDraft } from './plan';
+import { ExerciseBlocks } from './ExerciseBlocks';
+import { emptyBlock } from './exercises';
+import { examplePlan, fromDraft, toDraft, type DayDraft, type PlanDraft } from './plan';
 
 const PLAN_KINDS: PlanKind[] = ['rest', 'run', 'weight'];
 
@@ -37,14 +39,6 @@ export const PlanEditor = ({ plans, onSaved }: PlanEditorProps) => {
 
   const updateDay = (weekday: number, patch: Partial<DayDraft>): void =>
     setDraft((prev) => ({ ...prev, days: prev.days.map((d) => (d.weekday === weekday ? { ...d, ...patch } : d)) }));
-
-  const updateExercise = (weekday: number, index: number, patch: Partial<ExerciseDraft>): void =>
-    setDraft((prev) => ({
-      ...prev,
-      days: prev.days.map((d) =>
-        d.weekday === weekday ? { ...d, exercises: d.exercises.map((e, i) => (i === index ? { ...e, ...patch } : e)) } : d,
-      ),
-    }));
 
   const save = async (): Promise<void> => {
     setError('');
@@ -103,7 +97,7 @@ export const PlanEditor = ({ plans, onSaved }: PlanEditorProps) => {
                 onPress={() =>
                   updateDay(day.weekday, {
                     kind,
-                    exercises: kind === 'weight' && day.exercises.length === 0 ? [emptyExercise()] : day.exercises,
+                    blocks: kind === 'weight' && day.blocks.length === 0 ? [emptyBlock()] : day.blocks,
                   })
                 }
               />
@@ -119,25 +113,9 @@ export const PlanEditor = ({ plans, onSaved }: PlanEditorProps) => {
           ) : null}
 
           {day.kind === 'weight' ? (
-            <View style={{ gap: space(2), paddingLeft: 36 }}>
-              {day.exercises.map((exercise, index) => (
-                <View key={index} style={{ flexDirection: 'row', gap: space(2), alignItems: 'flex-end' }}>
-                  <MiniInput label={index === 0 ? '종목' : undefined} value={exercise.name} onChangeText={(v) => updateExercise(day.weekday, index, { name: v })} placeholder="스쿼트" flex={3} />
-                  <MiniInput label={index === 0 ? '세트' : undefined} value={exercise.sets} onChangeText={(v) => updateExercise(day.weekday, index, { sets: v })} keyboardType="number-pad" flex={1} />
-                  <MiniInput label={index === 0 ? '횟수' : undefined} value={exercise.reps} onChangeText={(v) => updateExercise(day.weekday, index, { reps: v })} keyboardType="number-pad" flex={1} />
-                  <MiniInput label={index === 0 ? 'kg' : undefined} value={exercise.weight} onChangeText={(v) => updateExercise(day.weekday, index, { weight: v })} keyboardType="decimal-pad" placeholder="-" flex={1.3} />
-                  <Pressable
-                    onPress={() => updateDay(day.weekday, { exercises: day.exercises.filter((_, i) => i !== index) })}
-                    hitSlop={8}
-                    accessibilityLabel="종목 지우기"
-                  >
-                    <Text style={{ color: theme.textMuted, fontSize: 16, paddingBottom: space(1.5) }}>×</Text>
-                  </Pressable>
-                </View>
-              ))}
-              <View style={{ flexDirection: 'row', gap: space(4), alignItems: 'flex-end' }}>
-                <TextButton title="+ 종목 추가" onPress={() => updateDay(day.weekday, { exercises: [...day.exercises, emptyExercise()] })} />
-                <View style={{ flex: 1 }} />
+            <View style={{ gap: space(3), paddingLeft: 36 }}>
+              <ExerciseBlocks blocks={day.blocks} onChange={(blocks) => updateDay(day.weekday, { blocks })} />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                 <MiniInput label="목표 kcal (선택)" value={day.targetKcal} onChangeText={(v) => updateDay(day.weekday, { targetKcal: v })} keyboardType="number-pad" placeholder="자동" width={96} />
               </View>
             </View>

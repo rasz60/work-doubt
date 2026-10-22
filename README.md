@@ -49,7 +49,7 @@ work-doubt/
 ├─ app/                          # Expo 클라이언트
 │  ├─ public/index.html          # 웹 템플릿: 포털 로딩 화면 + 앱 전환 버튼
 │  ├─ app/                       # 화면 (login · (tabs)/ HOME · RECORD · COACH · PROFILE)
-│  ├─ src/features/              # record(계획 · 수행 기록 · 신체), profile(연결된 기기)
+│  ├─ src/features/              # calendar(잔디 · 캘린더), record(계획 · 수행 기록 · 신체), profile(연결된 기기)
 │  └─ src/api/supabase.ts        # 세션 (포털과 공유)
 ├─ scripts/deploy.sh             # 서버 배포: Actions 가 빌드한 묶음을 받아 바꿔 끼운다 (서버에서는 빌드하지 않음)
 └─ ecosystem.config.cjs          # pm2
@@ -111,6 +111,7 @@ cd backend && TEST_DATABASE_URL='postgres://postgres:pw@localhost:55432/postgres
 | POST | `/api/v1/sync/run` | Strava 동기화 (`force` 가 아니면 10분에 한 번) |
 | GET | `/api/v1/sync/strava/authorize` | Strava 동의 화면 주소 |
 | POST | `/api/v1/sync/devices` | 기기 토큰 만들기 (토큰은 이때 한 번만 보인다) |
+| POST | `/api/v1/sync/connections/{id}/import` | Strava 활동 가져오기 `{from, to}` — 날짜(from=to) · 기간 · 전체(둘 다 비움). 이미 있는 기록은 건너뜀 |
 | DELETE | `/api/v1/sync/connections/{id}` | 연결 끊기 (받은 기록은 남는다) |
 | GET | `/api/v1/sync/strava/callback` | (로그인 없음, 서명된 state) Strava 가 돌려보내는 주소 |
 | POST | `/api/v1/sync/ingest` | (로그인 대신 `Bearer wkd_…` 기기 토큰) 폰 자동화가 운동 기록을 보냄 |
@@ -133,7 +134,11 @@ cd backend && TEST_DATABASE_URL='postgres://postgres:pw@localhost:55432/postgres
 - **칼로리**: 기기 · 사용자가 준 값이 없으면 최근 체중으로 추정합니다(러닝 체중×거리, 웨이트 MET 5 · 세트당 3분).
   목표는 요일 계획의 `target_kcal`, 비우면 계획으로 추정합니다.
 - **수행 능력**: 러닝은 Daniels VDOT(거리 · 시간으로 추정한 유산소 능력), 웨이트는 Epley 추정 1RM(맨몸 종목은 최대 횟수).
-- **연동 기록**은 `(user_id, source, external_id)` 로 한 번만 들어가고, 다시 받아도 사용자가 붙인 메모 · 세트는 덮어쓰지 않습니다.
+- **연동 기록은 한 번 들어오면 고치지 않습니다.** 가져올 때 이미 있는 운동은 건너뜁니다(`usecase.IsDuplicate`):
+  같은 연결의 같은 활동(external_id)이거나, 출처가 다른데 같은 날 · 같은 종류에 거리(±3%) · 시간(±5%)이 비슷한 기록(직접 입력 · 다른 기기).
+  같은 연결에서 온 서로 다른 활동(하루 두 번 달리기)은 따로 들어갑니다.
+- **웨이트 입력**은 종목 한 번 + `무게 × 횟수 × 세트` 줄입니다(빠른 입력 `20x5 40x5 60x5x3`). 저장은 세트마다 한 줄(`session_sets`),
+  계획은 무게 줄마다 한 항목(`PlannedExercise`)이라 스키마는 그대로입니다 (`app/src/features/record/exercises.ts`).
   기기 토큰은 sha256 만 저장합니다. Strava 토큰은 DB 에 그대로 두므로 `workout` 스키마를 브라우저에 노출하지 않는 규칙이 중요합니다.
 
 ## 다음에 채울 것

@@ -134,7 +134,7 @@ func (s *Sync) SyncAll(ctx context.Context, userID string, force bool) ([]domain
 		if err != nil {
 			return nil, err
 		}
-		_, _ = s.pull(ctx, full)
+		_, _ = s.pull(ctx, full) // 오류는 연결에 남는다
 		synced = true
 	}
 	if !synced {
@@ -143,61 +143,105 @@ func (s *Sync) SyncAll(ctx context.Context, userID string, force bool) ([]domain
 	return s.conns.List(ctx, userID)
 }
 
-// pull 은 Strava 에서 활동을 받아 기록에 넣는다. 결과(오류 포함)는 연결에 남긴다.
-func (s *Sync) pull(ctx context.Context, conn *domain.SyncConnection) (int, error) {
+// pull 은 자동 동기화다: 처음이면 최근 90일, 아니면 마지막 동기화 3일 전부터 가져온다.
+func (s *Sync) pull(ctx context.Context, conn *domain.SyncConnection) (*ImportResult, error) {
+	after := s.clock.Now().Add(-firstSyncLookback)
+	if conn.LastSyncedAt != nil && conn.LastError == "" {
+		after = conn.LastSyncedAt.Add(-resyncOverlap)
+	}
+	return s.pullRange(ctx, conn, after, time.Time{}, "", "")
+}
+
+// Import 는 Strava 연결에서 [from, to] 날짜의 활동을 가져온다. 둘 다 비우면 전체.
+// 이미 있는 기록(같은 활동 · 다른 출처의 같은 운동)은 건너뛰고 고치지 않는다.
+func (s *Sync) Import(ctx context.Context, userID, connID, from, to string) (*ImportResult, error) {
+	conn, err := s.conns.Find(ctx, userID, connID)
+	if err != nil {
+		return nil, err
+	}
+	if conn.Provider != domain.ProviderStrava {
+		return nil, invalid("기기 토큰 연결은 폰이 보내 주는 방식이라 서버에서 가져올 수 없습니다")
+	}
+	if s.strava == nil {
+		return nil, invalid("서버에 Strava 연동이 설정되지 않았습니다")
+	}
+
+	after, before := time.Unix(0, 0), time.Time{}
+	if from != "" || to != "" {
+		if to == "" {
+			to = from
+		}
+		if from == "" {
+			from = to
+		}
+		start, err := parseDay(from, "시작")
+		if err != nil {
+			return nil, err
+		}
+		end, err := parseDay(to, "끝")
+		if err != nil {
+			return nil, err
+		}
+		if start.After(end) {
+			return nil, invalid("시작 날짜가 끝 날짜보다 늦습니다")
+		}
+		from, to = formatDay(start), formatDay(end)
+		// 활동 날짜는 활동한 곳의 현지 날짜라 하루씩 넉넉히 받고 날짜로 거른다
+		after, before = start.AddDate(0, 0, -1), end.AddDate(0, 0, 2)
+	}
+	return s.pullRange(ctx, conn, after, before, from, to)
+}
+
+// pullRange 는 Strava 활동을 받아 기록에 넣고, 결과(오류 포함)를 연결에 남긴다. from/to 가 있으면 그 날짜만 넣는다.
+func (s *Sync) pullRange(ctx context.Context, conn *domain.SyncConnection, after, before time.Time, from, to string) (*ImportResult, error) {
 	now := s.clock.Now()
-	count, err := s.pullActivities(ctx, conn, now)
+	result, err := s.fetchAndImport(ctx, conn, now, after, before, from, to)
 	msg := ""
 	if err != nil {
 		slog.Warn("strava sync", "connection", conn.ID, "error", err)
-		msg = "동기화에 실패했습니다. 다시 연결해 보세요."
+		msg = "동기화에 실패했습니다. 잠시 뒤 다시 시도하세요."
 		if errors.Is(err, domain.ErrUnauthorized) {
 			msg = "Strava 권한이 만료됐습니다. 연결을 끊고 다시 연결하세요."
 		}
 	}
 	if markErr := s.conns.MarkSynced(ctx, conn.ID, now, msg); markErr != nil {
-		return count, markErr
+		return result, markErr
 	}
-	return count, err
+	if err != nil {
+		if errors.Is(err, domain.ErrUnauthorized) {
+			return result, invalid("%s", msg)
+		}
+		return result, err
+	}
+	return result, nil
 }
 
-func (s *Sync) pullActivities(ctx context.Context, conn *domain.SyncConnection, now time.Time) (int, error) {
+func (s *Sync) fetchAndImport(ctx context.Context, conn *domain.SyncConnection, now, after, before time.Time, from, to string) (*ImportResult, error) {
 	if now.Add(tokenRefreshMargin).After(conn.TokenExpiresAt) {
 		token, err := s.strava.Refresh(ctx, conn.RefreshToken)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		if err := s.conns.UpdateTokens(ctx, conn.ID, token.AccessToken, token.RefreshToken, token.ExpiresAt); err != nil {
-			return 0, err
+			return nil, err
 		}
 		conn.AccessToken, conn.RefreshToken, conn.TokenExpiresAt = token.AccessToken, token.RefreshToken, token.ExpiresAt
 	}
 
-	after := now.Add(-firstSyncLookback)
-	if conn.LastSyncedAt != nil && conn.LastError == "" {
-		after = conn.LastSyncedAt.Add(-resyncOverlap)
-	}
-	activities, err := s.strava.Activities(ctx, conn.AccessToken, after)
+	activities, err := s.strava.Activities(ctx, conn.AccessToken, after, before)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-
-	today := s.clock.Today()
-	count := 0
-	for _, act := range activities {
-		session, err := sessionFromActivity(act, today)
-		if err != nil {
-			continue // 기록할 수 없는 활동(거리 · 시간 없음 등)은 건너뛴다
+	if from != "" {
+		inRange := activities[:0]
+		for _, a := range activities {
+			if a.PerformedOn >= from && a.PerformedOn <= to {
+				inRange = append(inRange, a)
+			}
 		}
-		session.UserID = conn.UserID
-		session.Source = domain.SourceStrava
-		session.ConnectionID = &conn.ID
-		if _, err := s.sessions.UpsertExternal(ctx, session); err != nil {
-			return count, err
-		}
-		count++
+		activities = inRange
 	}
-	return count, nil
+	return s.importActivities(ctx, conn, domain.SourceStrava, activities)
 }
 
 func sessionFromActivity(act domain.ExternalActivity, today string) (*domain.Session, error) {
@@ -277,13 +321,11 @@ type IngestWorkout struct {
 }
 
 type IngestResult struct {
-	Connection string   `json:"connection"`
-	Saved      int      `json:"saved"`
-	Skipped    int      `json:"skipped"`
-	Errors     []string `json:"errors,omitempty"`
+	Connection string `json:"connection"`
+	ImportResult
 }
 
-// Ingest 는 기기 토큰으로 들어온 운동 기록을 저장한다.
+// Ingest 는 기기 토큰으로 들어온 운동 기록을 저장한다. 이미 있는 기록은 건너뛴다.
 func (s *Sync) Ingest(ctx context.Context, token string, workouts []IngestWorkout) (*IngestResult, error) {
 	if !strings.HasPrefix(token, deviceTokenPrefix) {
 		return nil, fmt.Errorf("ingest: not a device token: %w", domain.ErrUnauthorized)
@@ -302,40 +344,42 @@ func (s *Sync) Ingest(ctx context.Context, token string, workouts []IngestWorkou
 		return nil, invalid("한 번에 %d개까지 보낼 수 있습니다", maxIngestWorkouts)
 	}
 
-	result := &IngestResult{Connection: conn.Name}
-	today := s.clock.Today()
+	activities := make([]domain.ExternalActivity, 0, len(workouts))
+	var rejected []string
 	for i, w := range workouts {
-		session, err := s.sessionFromIngest(w, today)
+		act, err := s.activityFromIngest(w)
 		if err != nil {
-			result.Skipped++
-			if len(result.Errors) < maxIngestErrors {
-				result.Errors = append(result.Errors, fmt.Sprintf("%d번째: %s", i+1, userText(err)))
-			}
+			rejected = append(rejected, fmt.Sprintf("%d번째: %s", i+1, userText(err)))
 			continue
 		}
-		session.UserID = conn.UserID
-		session.Source = domain.SourceDevice
-		session.ConnectionID = &conn.ID
-		if _, err := s.sessions.UpsertExternal(ctx, session); err != nil {
-			return nil, err
-		}
-		result.Saved++
+		activities = append(activities, act)
+	}
+
+	result, err := s.importActivities(ctx, conn, domain.SourceDevice, activities)
+	if err != nil {
+		return nil, err
+	}
+	result.Fetched = len(workouts)
+	result.Skipped += len(rejected)
+	result.Errors = append(rejected, result.Errors...)
+	if len(result.Errors) > maxIngestErrors {
+		result.Errors = result.Errors[:maxIngestErrors]
 	}
 
 	syncErr := ""
-	if result.Saved == 0 {
+	if result.Saved == 0 && result.Duplicates == 0 {
 		syncErr = "받은 기록을 하나도 저장하지 못했습니다"
 	}
 	if err := s.conns.MarkSynced(ctx, conn.ID, s.clock.Now(), syncErr); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &IngestResult{Connection: conn.Name, ImportResult: *result}, nil
 }
 
-func (s *Sync) sessionFromIngest(w IngestWorkout, today string) (*domain.Session, error) {
+func (s *Sync) activityFromIngest(w IngestWorkout) (domain.ExternalActivity, error) {
 	date, err := s.ingestDate(w)
 	if err != nil {
-		return nil, err
+		return domain.ExternalActivity{}, err
 	}
 	kind := KindFromType(w.Type)
 
@@ -368,13 +412,13 @@ func (s *Sync) sessionFromIngest(w IngestWorkout, today string) (*domain.Session
 
 	externalID := strings.TrimSpace(w.ID)
 	if len(externalID) > 200 {
-		return nil, invalid("id 는 200자 이하로 보내세요")
+		return domain.ExternalActivity{}, invalid("id 는 200자 이하로 보내세요")
 	}
 	if externalID == "" {
 		externalID = derivedID(date, w.Start, kind, distance, duration)
 	}
 
-	return sessionFromActivity(domain.ExternalActivity{
+	return domain.ExternalActivity{
 		ExternalID:   externalID,
 		Title:        w.Title,
 		Kind:         kind,
@@ -383,7 +427,7 @@ func (s *Sync) sessionFromIngest(w IngestWorkout, today string) (*domain.Session
 		DurationSec:  duration,
 		CaloriesKcal: kcal,
 		AvgHeartRate: hr,
-	}, today)
+	}, nil
 }
 
 // ingestDate 는 date(YYYY-MM-DD) 를 먼저 보고, 없으면 start 시각의 날짜(시각에 붙은 시간대 기준)를 쓴다.

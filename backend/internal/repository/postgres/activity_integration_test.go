@@ -124,12 +124,12 @@ func TestActivityRepositories(t *testing.T) {
 
 			synced := &domain.Session{ID: uuid.NewString(), UserID: user, PerformedOn: "2026-10-21", Kind: domain.KindRun, Title: "아침",
 				Source: domain.SourceDevice, ConnectionID: &device.ID, ExternalID: "w1", DistanceKm: f64(3), DurationSec: iptr(1000)}
-			created, err := sessions.UpsertExternal(ctx, synced)
+			created, err := sessions.InsertExternal(ctx, synced)
 			if err != nil || !created {
 				t.Fatalf("first upsert created=%v err=%v", created, err)
 			}
 			syncedID := synced.ID
-			// 사용자가 메모를 붙인 뒤 기기가 같은 기록을 다시 보낸다
+			// 사용자가 메모를 붙인 뒤 기기가 같은 기록(값이 조금 다른)을 다시 보낸다 → 아무것도 바뀌지 않는다
 			withMemo := *synced
 			withMemo.Memo = "가볍게"
 			if err := sessions.Update(ctx, &withMemo); err != nil {
@@ -137,12 +137,12 @@ func TestActivityRepositories(t *testing.T) {
 			}
 			resent := &domain.Session{ID: uuid.NewString(), UserID: user, PerformedOn: "2026-10-21", Kind: domain.KindRun, Title: "아침",
 				Source: domain.SourceDevice, ConnectionID: &device.ID, ExternalID: "w1", DistanceKm: f64(3.1), DurationSec: iptr(1000)}
-			created, err = sessions.UpsertExternal(ctx, resent)
-			if err != nil || created || resent.ID != syncedID {
-				t.Fatalf("second upsert created=%v id=%s err=%v", created, resent.ID, err)
+			created, err = sessions.InsertExternal(ctx, resent)
+			if err != nil || created {
+				t.Fatalf("second insert created=%v err=%v", created, err)
 			}
 			again2, err := sessions.Find(ctx, user, syncedID)
-			if err != nil || *again2.DistanceKm != 3.1 || again2.Memo != "가볍게" || again2.Source != domain.SourceDevice || *again2.ConnectionID != device.ID {
+			if err != nil || *again2.DistanceKm != 3 || again2.ExternalID != "w1" || again2.Memo != "가볍게" || again2.Source != domain.SourceDevice || *again2.ConnectionID != device.ID {
 				t.Errorf("after resend = %+v, %v", again2, err)
 			}
 

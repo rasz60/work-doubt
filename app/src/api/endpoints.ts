@@ -6,6 +6,7 @@ import type {
   Conversation,
   ChatMessage,
   CreatedDevice,
+  ImportResult,
   Goal,
   Group,
   GroupMember,
@@ -154,6 +155,10 @@ export const fetchStravaAuthorizeURL = (): Promise<{ url: string }> =>
 
 export const createDevice = (name: string): Promise<CreatedDevice> =>
   request<CreatedDevice>('/api/v1/sync/devices', { method: 'POST', body: { name } });
+
+/** 날짜(from = to) · 기간 · 전체(둘 다 비움)의 활동을 가져온다. 이미 있는 기록은 건너뛴다 */
+export const importConnection = (id: string, from?: string, to?: string): Promise<ImportResult> =>
+  request<ImportResult>(`/api/v1/sync/connections/${id}/import`, { method: 'POST', body: { from: from ?? '', to: to ?? '' } });
 
 export const disconnect = (id: string): Promise<void> =>
   request<void>(`/api/v1/sync/connections/${id}`, { method: 'DELETE' });

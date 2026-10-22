@@ -68,7 +68,7 @@ func TestActivitiesPagesAndMaps(t *testing.T) {
 			return
 		}
 		pages = append(pages, r.URL.Query().Get("page"))
-		if r.URL.Query().Get("after") != "1790000000" {
+		if r.URL.Query().Get("after") != "1790000000" || r.URL.Query().Get("before") != "1795000000" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -85,7 +85,7 @@ func TestActivitiesPagesAndMaps(t *testing.T) {
 			{"id":9002,"name":"Ride","type":"Ride","start_date_local":"2026-10-21T08:00:00Z","distance":20000,"moving_time":3600}]`)
 	})
 
-	acts, err := c.Activities(context.Background(), "tok", time.Unix(1790000000, 0))
+	acts, err := c.Activities(context.Background(), "tok", time.Unix(1790000000, 0), time.Unix(1795000000, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestUnauthorized(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	})
-	if _, err := c.Activities(context.Background(), "expired", time.Now()); !errors.Is(err, domain.ErrUnauthorized) {
+	if _, err := c.Activities(context.Background(), "expired", time.Now(), time.Time{}); !errors.Is(err, domain.ErrUnauthorized) {
 		t.Errorf("err = %v, want ErrUnauthorized", err)
 	}
 }

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 import { Heading, Message, Screen, Segmented } from '@/components/ui';
 import * as api from '@/api/endpoints';
+import { CalendarView } from '@/features/calendar/CalendarView';
 import { BodyForm } from '@/features/record/BodyForm';
 import { PlanEditor } from '@/features/record/PlanEditor';
 import { SessionForm } from '@/features/record/SessionForm';
@@ -11,26 +12,28 @@ import { isDateString } from '@/lib/date';
 import { space } from '@/theme';
 import type { Plan } from '@/types';
 
-type Tab = 'log' | 'plan' | 'body';
+type Tab = 'calendar' | 'log' | 'plan' | 'body';
 
 const TABS: { value: Tab; label: string }[] = [
+  { value: 'calendar', label: '캘린더' },
   { value: 'log', label: '수행 기록' },
   { value: 'plan', label: '운동 계획' },
   { value: 'body', label: '신체' },
 ];
 
 const HEADINGS: Record<Tab, { eyebrow: string; title: string }> = {
+  calendar: { eyebrow: 'Record · Calendar', title: '운동 캘린더' },
   log: { eyebrow: 'Record · Log', title: '수행 기록' },
   plan: { eyebrow: 'Record · Plan', title: '운동 계획' },
   body: { eyebrow: 'Record · Body', title: '신체 지표' },
 };
 
-const isTab = (value: unknown): value is Tab => value === 'log' || value === 'plan' || value === 'body';
+const isTab = (value: unknown): value is Tab => value === 'calendar' || value === 'log' || value === 'plan' || value === 'body';
 
-// RECORD: 일자별 수행 기록 · 주간 운동 계획(이력) · 신체 지표.
+// RECORD: 캘린더(주 · 월 잔디) · 일자별 수행 기록 · 주간 운동 계획(이력) · 신체 지표.
 // HOME 의 잔디에서 날짜를 눌러 들어오면 ?tab=log&date=YYYY-MM-DD 로 그 날짜 기록을 시작한다.
 const Record = () => {
-  const params = useLocalSearchParams<{ tab?: string; date?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; date?: string; t?: string }>();
   const scrollRef = useRef<ScrollView>(null);
 
   const [tab, setTab] = useState<Tab>(isTab(params.tab) ? params.tab : 'log');
@@ -39,7 +42,7 @@ const Record = () => {
 
   useEffect(() => {
     if (isTab(params.tab)) setTab(params.tab);
-  }, [params.tab, params.date]);
+  }, [params.tab, params.date, params.t]);
 
   const loadPlans = useCallback(async (): Promise<void> => {
     try {
@@ -71,6 +74,9 @@ const Record = () => {
         <Message text={error} tone="error" />
 
         {/* 탭을 오가도 쓰던 입력이 남도록 셋 다 띄워 두고 보이는 것만 바꾼다 */}
+        <View style={{ display: tab === 'calendar' ? 'flex' : 'none' }}>
+          <CalendarView onRecord={(day) => router.setParams({ tab: 'log', date: day })} onPlan={() => setTab('plan')} />
+        </View>
         <View style={{ display: tab === 'log' ? 'flex' : 'none' }}>
           <SessionForm plans={plans} initialDate={date} onEditStart={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} />
         </View>

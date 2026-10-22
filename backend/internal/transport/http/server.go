@@ -82,6 +82,7 @@ func NewRouter(d Deps) http.Handler {
 	protected("POST /api/v1/sync/run", syncHandler.Run)
 	protected("GET /api/v1/sync/strava/authorize", syncHandler.StravaAuthorize)
 	protected("POST /api/v1/sync/devices", syncHandler.CreateDevice)
+	protected("POST /api/v1/sync/connections/{id}/import", syncHandler.Import)
 	protected("DELETE /api/v1/sync/connections/{id}", syncHandler.Disconnect)
 
 	return withLogging(withCORS(d.Config.AllowOrigin, mux))

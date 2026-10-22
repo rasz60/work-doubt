@@ -83,29 +83,53 @@ func (f *fakeConns) Delete(_ context.Context, userID, id string) error {
 }
 
 type fakeSessions struct {
-	external map[string]domain.Session // source|external_id → 기록
+	all []domain.Session
 }
 
-func (f *fakeSessions) Create(context.Context, *domain.Session) error { return nil }
+func (f *fakeSessions) Create(_ context.Context, s *domain.Session) error {
+	f.all = append(f.all, *s)
+	return nil
+}
 func (f *fakeSessions) Update(context.Context, *domain.Session) error { return nil }
 func (f *fakeSessions) Delete(context.Context, string, string) error  { return nil }
 func (f *fakeSessions) Find(context.Context, string, string) (*domain.Session, error) {
 	return nil, domain.ErrNotFound
 }
-func (f *fakeSessions) List(context.Context, string, string, string) ([]domain.Session, error) {
-	return nil, nil
+func (f *fakeSessions) List(_ context.Context, userID, from, to string) ([]domain.Session, error) {
+	var out []domain.Session
+	for _, s := range f.all {
+		if s.UserID == userID && s.PerformedOn >= from && s.PerformedOn <= to {
+			out = append(out, s)
+		}
+	}
+	return out, nil
 }
-func (f *fakeSessions) UpsertExternal(_ context.Context, s *domain.Session) (bool, error) {
-	key := string(s.Source) + "|" + s.ExternalID
-	_, exists := f.external[key]
-	f.external[key] = *s
-	return !exists, nil
+func (f *fakeSessions) InsertExternal(_ context.Context, s *domain.Session) (bool, error) {
+	for _, e := range f.all {
+		if e.UserID == s.UserID && e.Source == s.Source && e.ExternalID == s.ExternalID {
+			return false, nil
+		}
+	}
+	f.all = append(f.all, *s)
+	return true, nil
+}
+
+// external 은 출처|활동 id → 기록이다.
+func (f *fakeSessions) external() map[string]domain.Session {
+	out := map[string]domain.Session{}
+	for _, s := range f.all {
+		if s.ExternalID != "" {
+			out[string(s.Source)+"|"+s.ExternalID] = s
+		}
+	}
+	return out
 }
 
 type fakeStrava struct {
 	refreshed  int
 	activities []domain.ExternalActivity
 	after      time.Time
+	before     time.Time
 }
 
 func (f *fakeStrava) AuthURL(state string) string {
@@ -121,11 +145,11 @@ func (f *fakeStrava) Refresh(_ context.Context, refresh string) (*domain.OAuthTo
 	f.refreshed++
 	return &domain.OAuthToken{AccessToken: "a2", RefreshToken: "r2", ExpiresAt: testNow.Add(6 * time.Hour)}, nil
 }
-func (f *fakeStrava) Activities(_ context.Context, access string, after time.Time) ([]domain.ExternalActivity, error) {
+func (f *fakeStrava) Activities(_ context.Context, access string, after, before time.Time) ([]domain.ExternalActivity, error) {
 	if access != "a2" {
 		return nil, domain.ErrUnauthorized
 	}
-	f.after = after
+	f.after, f.before = after, before
 	return f.activities, nil
 }
 func (f *fakeStrava) Revoke(context.Context, string) error { return nil }
@@ -136,7 +160,7 @@ const testUser = "7d9f5a0e-2f43-4c43-9a55-0b1a2d3c4e5f"
 
 func newTestSync(strava domain.ActivityProvider) (*Sync, *fakeConns, *fakeSessions) {
 	conns := newFakeConns()
-	sessions := &fakeSessions{external: map[string]domain.Session{}}
+	sessions := &fakeSessions{}
 	clock := NewClock(time.UTC)
 	clock.now = func() time.Time { return testNow }
 	return NewSync(conns, sessions, strava, "secret", clock), conns, sessions
@@ -210,7 +234,7 @@ func TestIngest(t *testing.T) {
 	}
 
 	var run domain.Session
-	for _, v := range sessions.external {
+	for _, v := range sessions.external() {
 		if v.Kind == domain.KindRun {
 			run = v
 		}
@@ -226,8 +250,8 @@ func TestIngest(t *testing.T) {
 	if _, err := s.Ingest(ctx, token, workouts[:2]); err != nil {
 		t.Fatal(err)
 	}
-	if len(sessions.external) != 2 {
-		t.Errorf("re-sent workouts duplicated: %d records", len(sessions.external))
+	if len(sessions.external()) != 2 {
+		t.Errorf("re-sent workouts duplicated: %d records", len(sessions.external()))
 	}
 	if conns.byID[conn.ID].LastSyncedAt == nil {
 		t.Error("last_synced_at not recorded")
@@ -272,8 +296,8 @@ func TestStravaConnectAndSync(t *testing.T) {
 	if want := testNow.Add(-firstSyncLookback); !strava.after.Equal(want) {
 		t.Errorf("first sync after = %v, want %v", strava.after, want)
 	}
-	if len(sessions.external) != 1 || sessions.external["strava|1001"].Title != "Morning Run" {
-		t.Errorf("sessions = %+v", sessions.external)
+	if len(sessions.external()) != 1 || sessions.external()["strava|1001"].Title != "Morning Run" {
+		t.Errorf("sessions = %+v", sessions.external())
 	}
 
 	// 10분 안에는 다시 가져오지 않고, force 면 가져온다 (마지막 동기화 3일 전부터)
@@ -312,5 +336,86 @@ func TestStravaDisabled(t *testing.T) {
 	}
 	if _, err := s.StravaAuthURL(testUser); !errors.Is(err, domain.ErrInvalidInput) {
 		t.Errorf("err = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestIsDuplicate(t *testing.T) {
+	conn := "conn-1"
+	other := "conn-2"
+	strava := func(id, date string, km float64, sec int) *domain.Session {
+		return &domain.Session{PerformedOn: date, Kind: domain.KindRun, Source: domain.SourceStrava, ConnectionID: &conn, ExternalID: id, DistanceKm: f64(km), DurationSec: iptr(sec)}
+	}
+	manualRun := &domain.Session{PerformedOn: "2026-10-19", Kind: domain.KindRun, Source: domain.SourceManual, DistanceKm: f64(5), DurationSec: iptr(1500)}
+	manualLift := &domain.Session{PerformedOn: "2026-10-19", Kind: domain.KindWeight, Source: domain.SourceManual, Sets: []domain.SessionSet{{Exercise: "스쿼트", Reps: 5}}}
+	device := &domain.Session{PerformedOn: "2026-10-19", Kind: domain.KindRun, Source: domain.SourceDevice, ConnectionID: &other, ExternalID: "d1", DistanceKm: f64(5.05), DurationSec: iptr(1530)}
+
+	tests := []struct {
+		name string
+		e, c *domain.Session
+		want bool
+	}{
+		{"same activity fetched again", strava("1", "2026-10-19", 5, 1500), strava("1", "2026-10-19", 5, 1500), true},
+		{"two runs a day on same feed", strava("1", "2026-10-19", 5, 1500), strava("2", "2026-10-19", 5, 1510), false},
+		{"manual run already entered", manualRun, strava("3", "2026-10-19", 5.1, 1520), true},
+		{"other device same run", device, strava("4", "2026-10-19", 5.0, 1500), true},
+		{"different distance", manualRun, strava("5", "2026-10-19", 10, 3100), false},
+		{"different day", manualRun, strava("6", "2026-10-20", 5, 1500), false},
+		{"lift entered by hand vs synced lift", manualLift, &domain.Session{PerformedOn: "2026-10-19", Kind: domain.KindWeight, Source: domain.SourceStrava, ConnectionID: &conn, ExternalID: "7", DurationSec: iptr(3000)}, true},
+		{"run vs lift same day", manualLift, strava("8", "2026-10-19", 5, 1500), false},
+	}
+	for _, tc := range tests {
+		if got := IsDuplicate(tc.e, tc.c); got != tc.want {
+			t.Errorf("%s: IsDuplicate = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestStravaImportRangeSkipsDuplicates(t *testing.T) {
+	strava := &fakeStrava{activities: []domain.ExternalActivity{
+		{ExternalID: "1", Title: "Mon run", Kind: domain.KindRun, PerformedOn: "2026-10-19", DistanceKm: f64(5), DurationSec: iptr(1500)},
+		{ExternalID: "2", Title: "Tue run", Kind: domain.KindRun, PerformedOn: "2026-10-20", DistanceKm: f64(6), DurationSec: iptr(1900)},
+		{ExternalID: "3", Title: "Old run", Kind: domain.KindRun, PerformedOn: "2026-09-01", DistanceKm: f64(3), DurationSec: iptr(1000)},
+	}}
+	s, conns, sessions := newTestSync(strava)
+	ctx := context.Background()
+	conn := &domain.SyncConnection{ID: "c1", UserID: testUser, Provider: domain.ProviderStrava, Name: "Strava", ExternalAccountID: "42",
+		AccessToken: "a2", RefreshToken: "r", TokenExpiresAt: testNow.Add(time.Hour)}
+	_ = conns.SaveOAuth(ctx, conn)
+
+	// 10/19 에 직접 입력한 러닝이 이미 있다 → Strava 의 같은 러닝은 건너뛴다
+	_ = sessions.Create(ctx, &domain.Session{UserID: testUser, PerformedOn: "2026-10-19", Kind: domain.KindRun, Source: domain.SourceManual, DistanceKm: f64(5.02), DurationSec: iptr(1490)})
+
+	res, err := s.Import(ctx, testUser, "c1", "2026-10-19", "2026-10-20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Fetched != 2 || res.Saved != 1 || res.Duplicates != 1 {
+		t.Fatalf("range import = %+v, want fetched 2 saved 1 duplicates 1", res)
+	}
+	if !strava.after.Equal(day("2026-10-18")) || !strava.before.Equal(day("2026-10-22")) {
+		t.Errorf("window = %v ~ %v", strava.after, strava.before)
+	}
+
+	// 같은 기간을 다시 가져오면 하나도 바뀌지 않는다
+	again, err := s.Import(ctx, testUser, "c1", "2026-10-19", "2026-10-20")
+	if err != nil || again.Saved != 0 || again.Duplicates != 2 {
+		t.Fatalf("re-import = %+v, %v", again, err)
+	}
+
+	// 전체: 날짜 제한 없이, 남은 9/1 만 새로 들어간다
+	all, err := s.Import(ctx, testUser, "c1", "", "")
+	if err != nil || all.Fetched != 3 || all.Saved != 1 || all.Duplicates != 2 {
+		t.Fatalf("all import = %+v, %v", all, err)
+	}
+	if strava.after.Unix() != 0 || !strava.before.IsZero() {
+		t.Errorf("all window = %v ~ %v", strava.after, strava.before)
+	}
+
+	if _, err := s.Import(ctx, testUser, "c1", "2026-10-20", "2026-10-19"); !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("reversed range err = %v", err)
+	}
+	device, _, _ := s.CreateDevice(ctx, testUser, "폰")
+	if _, err := s.Import(ctx, testUser, device.ID, "", ""); !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("device import err = %v", err)
 	}
 }

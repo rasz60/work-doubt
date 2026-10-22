@@ -62,7 +62,7 @@ export const describePlan = (planned?: PlanDay): string => {
   const exercises = planned.exercises ?? [];
   if (exercises.length === 0) return '웨이트';
   const sets = exercises.reduce((sum, e) => sum + e.sets, 0);
-  return `웨이트 · ${exercises.length}종목 ${sets}세트`;
+  return `웨이트 · ${new Set(exercises.map((e) => e.name)).size}종목 ${sets}세트`;
 };
 
 /** 기록 한 줄 요약: 5.2km · 26:10 · 5'02" / 스쿼트 외 2종목 12세트 */

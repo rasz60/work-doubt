@@ -228,6 +228,15 @@ export interface SyncOverview {
   connections: SyncConnection[];
 }
 
+/** 연동 기록 가져오기 결과 */
+export interface ImportResult {
+  fetched: number;
+  saved: number;
+  duplicates: number;
+  skipped: number;
+  errors?: string[];
+}
+
 export interface CreatedDevice {
   connection: SyncConnection;
   token: string;

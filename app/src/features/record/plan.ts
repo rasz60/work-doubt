@@ -2,14 +2,9 @@ import type { SavePlanPayload } from '@/api/endpoints';
 import { isDateString, isoWeekday, parsePace, toNumber, weekdayLabel, formatPace } from '@/lib/date';
 import type { Plan, PlanDay, PlanKind } from '@/types';
 
-// 계획 편집 화면의 입력 상태(문자열)와 서버 형식(PlanDay) 사이를 오간다.
+import { blocksFromPlanned, plannedFromBlocks, type ExerciseBlock } from './exercises';
 
-export interface ExerciseDraft {
-  name: string;
-  sets: string;
-  reps: string;
-  weight: string;
-}
+// 계획 편집 화면의 입력 상태(문자열)와 서버 형식(PlanDay) 사이를 오간다.
 
 export interface DayDraft {
   weekday: number;
@@ -17,7 +12,7 @@ export interface DayDraft {
   distance: string;
   pace: string;
   targetKcal: string;
-  exercises: ExerciseDraft[];
+  blocks: ExerciseBlock[];
 }
 
 export interface PlanDraft {
@@ -28,9 +23,7 @@ export interface PlanDraft {
 
 const str = (n?: number): string => (n === undefined || n === null ? '' : String(n));
 
-export const emptyExercise = (): ExerciseDraft => ({ name: '', sets: '3', reps: '10', weight: '' });
-
-const emptyDay = (weekday: number): DayDraft => ({ weekday, kind: 'rest', distance: '', pace: '', targetKcal: '', exercises: [] });
+const emptyDay = (weekday: number): DayDraft => ({ weekday, kind: 'rest', distance: '', pace: '', targetKcal: '', blocks: [] });
 
 export const toDraft = (effectiveFrom: string, plan?: Plan): PlanDraft => ({
   effectiveFrom,
@@ -44,7 +37,7 @@ export const toDraft = (effectiveFrom: string, plan?: Plan): PlanDraft => ({
       distance: str(day.distance_km),
       pace: day.pace_sec_per_km ? formatPace(day.pace_sec_per_km).replace(`'`, ':').replace('"', '') : '',
       targetKcal: str(day.target_kcal),
-      exercises: (day.exercises ?? []).map((e) => ({ name: e.name, sets: str(e.sets), reps: str(e.reps), weight: str(e.weight_kg) })),
+      blocks: blocksFromPlanned(day.exercises ?? []),
     };
   }),
 });
@@ -55,7 +48,7 @@ export const examplePlan = (effectiveFrom: string): PlanDraft => {
   const lift = (weekday: number, exercises: [string, number, number][]): DayDraft => ({
     ...emptyDay(weekday),
     kind: 'weight',
-    exercises: exercises.map(([name, sets, reps]) => ({ name, sets: String(sets), reps: String(reps), weight: '' })),
+    blocks: exercises.map(([name, sets, reps]) => ({ name, rows: [{ weight: '', reps: String(reps), sets: String(sets) }] })),
   });
   return {
     effectiveFrom,
@@ -98,16 +91,7 @@ export const fromDraft = (draft: PlanDraft): SavePlanPayload => {
       return day;
     }
 
-    day.exercises = d.exercises
-      .filter((e) => e.name.trim() || e.weight.trim())
-      .map((e) => {
-        const name = e.name.trim();
-        if (!name) throw new Error(`${label} 루틴에 종목 이름이 빠진 줄이 있습니다.`);
-        const sets = toInt(e.sets);
-        const reps = toInt(e.reps);
-        if (!sets || !reps) throw new Error(`${label} ${name}의 세트 · 횟수를 숫자로 입력하세요.`);
-        return { name, sets, reps, weight_kg: toNumber(e.weight) };
-      });
+    day.exercises = plannedFromBlocks(d.blocks, `${label} `);
     return day;
   });
 

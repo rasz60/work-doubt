@@ -97,9 +97,9 @@ type SessionRepository interface {
 	Create(ctx context.Context, s *Session) error
 	// Update 는 본문과 세트를 통째로 바꾼다.
 	Update(ctx context.Context, s *Session) error
-	// UpsertExternal 은 연동 기록을 (user_id, source, external_id) 로 넣거나 고친다.
-	// 사용자가 붙인 메모 · 세트는 건드리지 않는다. 새로 넣었으면 true.
-	UpsertExternal(ctx context.Context, s *Session) (bool, error)
+	// InsertExternal 은 연동 기록을 넣는다. 같은 (user_id, source, external_id) 가 이미 있으면 아무것도 바꾸지 않고 false.
+	// 한 번 들어온 기록은 다시 가져와도 고치지 않는다 (사용자가 고친 내용을 지킨다).
+	InsertExternal(ctx context.Context, s *Session) (bool, error)
 	Delete(ctx context.Context, userID, id string) error
 	Find(ctx context.Context, userID, id string) (*Session, error)
 	// List 는 [from, to] 의 기록을 세트와 함께 performed_on 오름차순으로 준다.

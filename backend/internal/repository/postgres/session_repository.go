@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -21,7 +22,7 @@ func NewSessionRepository(pool *pgxpool.Pool) *SessionRepository {
 var _ domain.SessionRepository = (*SessionRepository)(nil)
 
 const sessionColumns = `id, user_id, performed_on, kind, title, distance_km, duration_sec, calories_kcal,
-	avg_heart_rate, coalesce(memo, ''), source, connection_id, created_at, updated_at`
+	avg_heart_rate, coalesce(memo, ''), source, connection_id, coalesce(external_id, ''), created_at, updated_at`
 
 func (r *SessionRepository) Create(ctx context.Context, s *domain.Session) error {
 	day, err := parseDate(s.PerformedOn)
@@ -74,44 +75,35 @@ func (r *SessionRepository) Update(ctx context.Context, s *domain.Session) error
 	})
 }
 
-// UpsertExternal 은 연동이 주는 값(날짜 · 종류 · 제목 · 거리 · 시간 · 칼로리 · 심박)만 고친다.
-// 사용자가 붙인 메모와 세트는 그대로 둔다.
-func (r *SessionRepository) UpsertExternal(ctx context.Context, s *domain.Session) (bool, error) {
+// InsertExternal 은 연동 기록을 넣는다. 같은 (user_id, source, external_id) 가 있으면 건드리지 않고 false 를 준다.
+func (r *SessionRepository) InsertExternal(ctx context.Context, s *domain.Session) (bool, error) {
 	if s.ExternalID == "" {
-		return false, fmt.Errorf("session repository: upsert external without external_id: %w", domain.ErrInvalidInput)
+		return false, fmt.Errorf("session repository: insert external without external_id: %w", domain.ErrInvalidInput)
 	}
 	day, err := parseDate(s.PerformedOn)
 	if err != nil {
 		return false, err
 	}
 
-	// xmax = 0 이면 새로 넣은 행이다
 	const q = `
 		INSERT INTO workout.sessions
 			(id, user_id, performed_on, kind, title, distance_km, duration_sec, calories_kcal,
 			 avg_heart_rate, source, connection_id, external_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT (user_id, source, external_id) DO UPDATE
-		   SET performed_on   = excluded.performed_on,
-		       kind           = excluded.kind,
-		       title          = excluded.title,
-		       distance_km    = excluded.distance_km,
-		       duration_sec   = excluded.duration_sec,
-		       calories_kcal  = coalesce(excluded.calories_kcal, sessions.calories_kcal),
-		       avg_heart_rate = coalesce(excluded.avg_heart_rate, sessions.avg_heart_rate),
-		       connection_id  = excluded.connection_id,
-		       updated_at     = now()
-		RETURNING id, created_at, updated_at, (xmax = 0)`
+		ON CONFLICT (user_id, source, external_id) DO NOTHING
+		RETURNING created_at, updated_at`
 
-	var created bool
 	err = r.pool.QueryRow(ctx, q,
 		s.ID, s.UserID, day, string(s.Kind), s.Title, s.DistanceKm, s.DurationSec, s.CaloriesKcal,
 		s.AvgHeartRate, string(s.Source), s.ConnectionID, s.ExternalID,
-	).Scan(&s.ID, &s.CreatedAt, &s.UpdatedAt, &created)
-	if err != nil {
-		return false, translate("session repository: upsert external", err)
+	).Scan(&s.CreatedAt, &s.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil // 이미 있다
 	}
-	return created, nil
+	if err != nil {
+		return false, translate("session repository: insert external", err)
+	}
+	return true, nil
 }
 
 func (r *SessionRepository) Delete(ctx context.Context, userID, id string) error {
@@ -172,7 +164,7 @@ func (r *SessionRepository) query(ctx context.Context, op, q string, args ...any
 		var kind, source string
 		if err := rows.Scan(
 			&s.ID, &s.UserID, &day, &kind, &s.Title, &s.DistanceKm, &s.DurationSec, &s.CaloriesKcal,
-			&s.AvgHeartRate, &s.Memo, &source, &s.ConnectionID, &s.CreatedAt, &s.UpdatedAt,
+			&s.AvgHeartRate, &s.Memo, &source, &s.ConnectionID, &s.ExternalID, &s.CreatedAt, &s.UpdatedAt,
 		); err != nil {
 			return nil, translate("session repository: "+op+" scan", err)
 		}

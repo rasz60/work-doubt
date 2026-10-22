@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { describePlan, describeSession } from '@/components/ActivityGrid';
-import { Button, Field, Message, MiniInput, SectionTitle, Segmented, TextButton } from '@/components/ui';
+import { Button, Field, Message, SectionTitle, Segmented, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import type { SessionPayload } from '@/api/endpoints';
 import {
@@ -19,6 +19,8 @@ import {
 import { space, useTheme } from '@/theme';
 import { KIND_LABELS, SOURCE_LABELS, type Plan, type Session, type WorkoutKind } from '@/types';
 
+import { ExerciseBlocks } from './ExerciseBlocks';
+import { blocksForSession, blocksFromSets, emptyBlock, setsFromBlocks, type ExerciseBlock } from './exercises';
 import { planDayFor } from './plan';
 
 const KINDS: { value: WorkoutKind; label: string }[] = [
@@ -26,12 +28,6 @@ const KINDS: { value: WorkoutKind; label: string }[] = [
   { value: 'weight', label: '웨이트' },
   { value: 'other', label: '기타' },
 ];
-
-interface SetDraft {
-  exercise: string;
-  weight: string;
-  reps: string;
-}
 
 interface Draft {
   date: string;
@@ -42,10 +38,8 @@ interface Draft {
   kcal: string;
   heartRate: string;
   memo: string;
-  sets: SetDraft[];
+  blocks: ExerciseBlock[];
 }
-
-const emptySet = (): SetDraft => ({ exercise: '', weight: '', reps: '' });
 
 const emptyDraft = (date: string, kind: WorkoutKind): Draft => ({
   date,
@@ -56,7 +50,7 @@ const emptyDraft = (date: string, kind: WorkoutKind): Draft => ({
   kcal: '',
   heartRate: '',
   memo: '',
-  sets: kind === 'weight' ? [emptySet()] : [],
+  blocks: kind === 'weight' ? [emptyBlock()] : [],
 });
 
 const str = (n?: number): string => (n === undefined ? '' : String(n));
@@ -70,7 +64,7 @@ const toDraft = (s: Session): Draft => ({
   kcal: str(s.calories_kcal),
   heartRate: str(s.avg_heart_rate),
   memo: s.memo ?? '',
-  sets: s.sets.length ? s.sets.map((set) => ({ exercise: set.exercise, weight: str(set.weight_kg), reps: str(set.reps) })) : s.kind === 'weight' ? [emptySet()] : [],
+  blocks: s.sets.length ? blocksFromSets(s.sets) : s.kind === 'weight' ? [emptyBlock()] : [],
 });
 
 const toPayload = (d: Draft): SessionPayload => {
@@ -85,18 +79,7 @@ const toPayload = (d: Draft): SessionPayload => {
   const kcal = num(d.kcal, '칼로리');
   const hr = num(d.heartRate, '심박수');
 
-  const sets =
-    d.kind === 'weight'
-      ? d.sets
-          .filter((s) => s.exercise.trim() || s.reps.trim() || s.weight.trim())
-          .map((s) => {
-            const exercise = s.exercise.trim();
-            const reps = Math.round(toNumber(s.reps) ?? 0);
-            if (!exercise) throw new Error('종목 이름이 빠진 세트가 있습니다.');
-            if (reps <= 0) throw new Error(`${exercise}의 횟수를 입력하세요.`);
-            return { exercise, reps, weight_kg: num(s.weight, `${exercise} 중량`) };
-          })
-      : undefined;
+  const sets = d.kind === 'weight' ? setsFromBlocks(d.blocks) : undefined;
 
   return {
     performed_on: d.date,
@@ -119,7 +102,7 @@ interface SessionFormProps {
   onEditStart: () => void;
 }
 
-// 일자별 수행 기록: 러닝은 거리 · 시간, 웨이트는 종목 · 중량 · 횟수(세트마다 한 줄).
+// 일자별 수행 기록: 러닝은 거리 · 시간, 웨이트는 종목마다 무게 × 횟수 × 세트 줄.
 export const SessionForm = ({ plans, initialDate, onEditStart }: SessionFormProps) => {
   const theme = useTheme();
   const today = todayString();
@@ -161,22 +144,18 @@ export const SessionForm = ({ plans, initialDate, onEditStart }: SessionFormProp
   }, [initialDate, plans]);
 
   const set = (patch: Partial<Draft>): void => setDraft((prev) => ({ ...prev, ...patch }));
-  const setRow = (index: number, patch: Partial<SetDraft>): void =>
-    setDraft((prev) => ({ ...prev, sets: prev.sets.map((s, i) => (i === index ? { ...s, ...patch } : s)) }));
 
   const planned = isDateString(draft.date) ? planDayFor(plans, draft.date) : undefined;
 
-  // 계획한 루틴을 세트 줄로 펼친다 (스쿼트 5×5 → 다섯 줄)
+  // 계획한 루틴을 그대로 채운다 (무게 · 횟수 · 세트)
   const fillFromPlan = (): void => {
     if (!planned) return;
     if (planned.kind === 'run') {
       set({ kind: 'run', distance: str(planned.distance_km) });
       return;
     }
-    const rows = (planned.exercises ?? []).flatMap((e) =>
-      Array.from({ length: e.sets }, () => ({ exercise: e.name, weight: str(e.weight_kg), reps: str(e.reps) })),
-    );
-    set({ kind: 'weight', sets: rows.length ? rows : [emptySet()] });
+    const blocks = blocksForSession(planned.exercises ?? []);
+    set({ kind: 'weight', blocks: blocks.length ? blocks : [emptyBlock()] });
   };
 
   const save = async (): Promise<void> => {
@@ -232,7 +211,7 @@ export const SessionForm = ({ plans, initialDate, onEditStart }: SessionFormProp
         <Segmented
           options={KINDS}
           value={draft.kind}
-          onChange={(kind) => set({ kind, sets: kind === 'weight' && draft.sets.length === 0 ? [emptySet()] : draft.sets })}
+          onChange={(kind) => set({ kind, blocks: kind === 'weight' && draft.blocks.length === 0 ? [emptyBlock()] : draft.blocks })}
         />
 
         {draft.kind === 'other' ? <Field label="운동 이름" value={draft.title} onChangeText={(v) => set({ title: v })} placeholder="수영, 자전거 …" /> : null}
@@ -251,27 +230,7 @@ export const SessionForm = ({ plans, initialDate, onEditStart }: SessionFormProp
 
         {draft.kind === 'weight' ? (
           <View style={{ gap: space(2) }}>
-            {draft.sets.map((row, index) => (
-              <View key={index} style={{ flexDirection: 'row', gap: space(2), alignItems: 'flex-end' }}>
-                <Text style={{ color: theme.textMuted, fontSize: 11, width: 18, paddingBottom: space(2) }}>{index + 1}</Text>
-                <MiniInput label={index === 0 ? '종목' : undefined} value={row.exercise} onChangeText={(v) => setRow(index, { exercise: v })} placeholder="스쿼트" flex={3} />
-                <MiniInput label={index === 0 ? '중량 kg' : undefined} value={row.weight} onChangeText={(v) => setRow(index, { weight: v })} keyboardType="decimal-pad" placeholder="맨몸" flex={1.4} />
-                <MiniInput label={index === 0 ? '횟수' : undefined} value={row.reps} onChangeText={(v) => setRow(index, { reps: v })} keyboardType="number-pad" flex={1} />
-                <Pressable onPress={() => set({ sets: draft.sets.filter((_, i) => i !== index) })} hitSlop={8} accessibilityLabel="세트 지우기">
-                  <Text style={{ color: theme.textMuted, fontSize: 16, paddingBottom: space(1.5) }}>×</Text>
-                </Pressable>
-              </View>
-            ))}
-            <View style={{ flexDirection: 'row', gap: space(4) }}>
-              <TextButton
-                title="+ 같은 세트"
-                onPress={() => {
-                  const last = draft.sets[draft.sets.length - 1];
-                  set({ sets: [...draft.sets, last ? { ...last } : emptySet()] });
-                }}
-              />
-              <TextButton title="+ 새 종목" onPress={() => set({ sets: [...draft.sets, emptySet()] })} />
-            </View>
+            <ExerciseBlocks blocks={draft.blocks} onChange={(blocks) => set({ blocks })} />
             <Field label="운동 시간 (분:초 또는 분, 선택)" value={draft.duration} onChangeText={(v) => set({ duration: v })} placeholder="50" />
           </View>
         ) : null}
