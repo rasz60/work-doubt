@@ -3,7 +3,7 @@ import { Platform, useColorScheme } from 'react-native';
 import type { PlanKind, WorkoutKind } from '@/types';
 
 // 체육관 기록판: 옅은 회색 판 위에 흰 카드, 입력은 테두리 있는 상자.
-// 색은 장식이 아니라 "무슨 운동인지"를 뜻한다 — 러닝 파랑 · 웨이트 주황 · 기타 청록. 잔디 · 기록 · 저장 버튼이 같은 색을 쓴다.
+// 색은 장식이 아니라 "무슨 운동인지"를 뜻한다 — 러닝 파랑 · 웨이트 벽돌색 · 기타 청록. 잔디 · 기록 · 저장 버튼이 같은 색을 쓴다.
 // 모든 글자 조합은 4.5:1 이상, 입력 상자 테두리는 3:1 이상.
 
 export interface KindColors {
@@ -45,9 +45,10 @@ const light: Theme = {
   onKind: '#ffffff',
   danger: '#c8261b',
   dangerSoft: '#fdeceb',
-  run: { solid: '#1f4fd8', ink: '#1f4fd8', soft: '#e8eeff' },
-  weight: { solid: '#c2410c', ink: '#b83e0c', soft: '#ffeee3' },
-  other: { solid: '#0b7468', ink: '#0b6e63', soft: '#e0f4f1' },
+  // 원색을 피해 채도를 낮춘 색 (흰 글자 · 옅은 바탕 위 글자 모두 4.5:1 이상)
+  run: { solid: '#4a6aa8', ink: '#4a6aa8', soft: '#eaeff8' },
+  weight: { solid: '#a65d3f', ink: '#9d5634', soft: '#f8ede6' },
+  other: { solid: '#3f7a70', ink: '#376b62', soft: '#e6f1ef' },
   rest: { solid: '#8b93a0', ink: '#5a6170', soft: '#e3e6eb' },
 };
 
@@ -63,9 +64,9 @@ const dark: Theme = {
   onKind: '#0e1218',
   danger: '#ff6b5e',
   dangerSoft: '#3a1d1b',
-  run: { solid: '#6e97ff', ink: '#6e97ff', soft: '#1b2742' },
-  weight: { solid: '#ff8a4c', ink: '#ff8a4c', soft: '#3a2418' },
-  other: { solid: '#3cc7b3', ink: '#3cc7b3', soft: '#15332f' },
+  run: { solid: '#8fa9e0', ink: '#8fa9e0', soft: '#1e2638' },
+  weight: { solid: '#e0a07c', ink: '#e0a07c', soft: '#33241c' },
+  other: { solid: '#7cc4b6', ink: '#7cc4b6', soft: '#1a2e2b' },
   rest: { solid: '#5b6577', ink: '#9ba4b4', soft: '#262c37' },
 };
 
