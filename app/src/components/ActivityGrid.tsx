@@ -110,7 +110,7 @@ const MonthGrid = ({ days, month, today, selected, onSelect }: GridProps) => {
     <View style={{ gap: space(1) }}>
       <View style={{ flexDirection: 'row', gap: space(1) }}>
         {WEEKDAY_LABELS.map((label) => (
-          <Text key={label} style={{ flex: 1, textAlign: 'center', color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>
+          <Text key={label} style={{ flex: 1, textAlign: 'center', color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>
             {label}
           </Text>
         ))}
@@ -212,14 +212,14 @@ const WeekList = ({ days, today, selected, onSelect }: GridProps) => {
               </Text>
             </View>
             <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-              <Text style={{ color: theme.textMuted, fontSize: 11 }} numberOfLines={1}>
+              <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>
                 {formatShortDate(day.date)} 계획 · {describePlan(day.planned)}
               </Text>
               <Text style={{ color: done ? theme.text : theme.textMuted, fontSize: 13, fontWeight: done ? '700' : '400' }} numberOfLines={1}>
                 {done || (day.status === 'missed' ? '기록 없음' : '-')}
               </Text>
             </View>
-            <Text style={{ color: day.status === 'missed' ? theme.text : theme.textMuted, fontSize: 11, fontWeight: '700' }}>
+            <Text style={{ color: day.status === 'missed' ? theme.text : theme.textMuted, fontSize: 12, fontWeight: '700' }}>
               {day.status === 'partial' ? `${Math.round(day.achievement * 100)}%` : STATUS_LABELS[day.status]}
             </Text>
           </Pressable>
@@ -255,11 +255,11 @@ export const ActivityLegend = () => {
                 borderStyle: look.borderStyle,
               }}
             />
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>{label}</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>{label}</Text>
           </View>
         );
       })}
-      <Text style={{ color: theme.textMuted, fontSize: 11, letterSpacing: tracking.label }}>R 러닝 · W 웨이트 · + 추가</Text>
+      <Text style={{ color: theme.textMuted, fontSize: 12, letterSpacing: tracking.label }}>R 러닝 · W 웨이트 · + 추가</Text>
     </View>
   );
 };

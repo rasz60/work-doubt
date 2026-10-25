@@ -202,7 +202,7 @@ const CaloriesSection = ({ summary }: SummaryProps) => {
           marker={monthKcal.target > 0 ? monthKcal.target_to_date / monthKcal.target : undefined}
         />
         {monthKcal.target_to_date > 0 ? (
-          <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+          <Text style={{ color: theme.textMuted, fontSize: 12 }}>
             오늘까지 목표 {formatNumber(monthKcal.target_to_date)} kcal 대비{' '}
             {Math.round((monthKcal.actual / monthKcal.target_to_date) * 100)}% (세로선이 오늘까지 목표)
           </Text>
@@ -313,7 +313,7 @@ const WeightSection = ({ exercises, active, onSelect, width }: WeightSectionProp
                 <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }} numberOfLines={1}>
                   {e.name}
                 </Text>
-                <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>
                   {formatShortDate(e.last_date)} ·{' '}
                   {bodyweight(e) ? `맨몸 최대 ${e.top_reps}회` : `${e.top_weight_kg}kg × ${e.top_reps}`} · {e.sets}세트
                 </Text>
@@ -322,7 +322,7 @@ const WeightSection = ({ exercises, active, onSelect, width }: WeightSectionProp
                 <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] }}>
                   {bodyweight(e) ? `${e.top_reps}회` : `${e.estimated_1rm}kg`}
                 </Text>
-                <Text style={{ color: theme.textMuted, fontSize: 11, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ color: theme.textMuted, fontSize: 12, fontVariant: ['tabular-nums'] }}>
                   {e.series.length > 1 ? `${signed(e.delta_1rm)}${bodyweight(e) ? '회' : 'kg'}` : '첫 기록'}
                 </Text>
               </View>

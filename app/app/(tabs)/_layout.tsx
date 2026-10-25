@@ -23,7 +23,7 @@ const TabsLayout = () => {
     return (
       <Screen>
         <Message text={error || '프로필을 불러오지 못했습니다.'} tone="error" />
-        <Button title="RETRY" onPress={() => void refreshUser()} />
+        <Button title="다시 시도" onPress={() => void refreshUser()} />
       </Screen>
     );
   }
@@ -42,7 +42,7 @@ const TabsLayout = () => {
         },
         tabBarIcon: () => null,
         tabBarIconStyle: { display: 'none' },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', letterSpacing: tracking.label },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '700', letterSpacing: tracking.label },
         tabBarItemStyle: { justifyContent: 'center' },
         tabBarActiveTintColor: theme.text,
         tabBarInactiveTintColor: theme.textMuted,

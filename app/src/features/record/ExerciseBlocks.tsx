@@ -28,7 +28,7 @@ export const ExerciseBlocks = ({ blocks, onChange }: ExerciseBlocksProps) => {
         <View key={index} style={{ gap: space(2), borderLeftWidth: 2, borderLeftColor: theme.text, paddingLeft: space(3) }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space(2) }}>
             <MiniInput label="종목" value={block.name} onChangeText={(v) => update(index, { name: v })} placeholder="스쿼트" flex={1} />
-            <Text style={{ color: theme.textMuted, fontSize: 11, paddingBottom: space(2) }}>{describeBlock(block)}</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 12, paddingBottom: space(2) }}>{describeBlock(block)}</Text>
             <Pressable onPress={() => onChange(blocks.filter((_, i) => i !== index))} hitSlop={8} accessibilityLabel="종목 지우기">
               <Text style={{ color: theme.textMuted, fontSize: 16, paddingBottom: space(1.5) }}>×</Text>
             </Pressable>

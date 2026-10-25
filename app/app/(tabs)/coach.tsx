@@ -107,7 +107,7 @@ const Coach = () => {
 
       {!conversation && (
         <View style={{ gap: space(2) }}>
-          <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>목표를 고르세요</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>목표를 고르세요</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(2) }}>
             {GOALS.map((item) => {
               const selected = goal === item;
@@ -159,7 +159,7 @@ const Coach = () => {
       <Message text={error} tone="error" />
 
       <Field label="질문" value={draft} onChangeText={setDraft} multiline autoCapitalize="sentences" />
-      <Button title={busy ? 'THINKING…' : 'SEND'} onPress={() => void send()} disabled={busy} />
+      <Button title={busy ? '생각하는 중…' : '보내기'} onPress={() => void send()} disabled={busy} />
     </Screen>
   );
 };
@@ -198,7 +198,7 @@ const Bubble = ({ role, content }: BubbleProps) => {
         <Text
           style={{
             color: theme.textMuted,
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: '700',
             letterSpacing: tracking.label,
             marginBottom: space(1.5),

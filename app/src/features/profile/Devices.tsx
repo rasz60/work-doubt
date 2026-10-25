@@ -38,7 +38,7 @@ const Status = ({ conn }: { conn: SyncConnection }) => {
         <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }} numberOfLines={1}>
           {conn.name}
         </Text>
-        <Text style={{ color: conn.last_error ? theme.danger : theme.text, fontSize: 10, fontWeight: '800', letterSpacing: tracking.label }}>
+        <Text style={{ color: conn.last_error ? theme.danger : theme.text, fontSize: 11, fontWeight: '800', letterSpacing: tracking.label }}>
           {conn.last_error ? 'ERROR' : conn.last_synced_at ? 'SYNCED' : 'WAITING'}
         </Text>
       </View>
@@ -118,7 +118,7 @@ const StravaCard = ({ conn, onChanged, onDisconnect, confirming }: StravaCardPro
       ) : null}
       {scope === 'all' ? <Message text="이 Strava 계정의 모든 활동(최대 4,000개)을 가져옵니다. 몇십 초 걸릴 수 있습니다." /> : null}
 
-      <Button title={busy ? 'IMPORTING…' : 'IMPORT'} onPress={() => void run()} disabled={busy} />
+      <Button title={busy ? '가져오는 중…' : '가져오기'} onPress={() => void run()} disabled={busy} />
       <Message text={error} tone="error" />
       <Message text={result} />
       <TextButton title={confirming ? '정말 끊기 (받은 기록은 남습니다)' : '연결 끊기'} tone="danger" onPress={() => onDisconnect(conn)} />
@@ -226,7 +226,7 @@ export const Devices = () => {
             <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18 }}>
               버튼을 누르면 Strava 로그인 · 동의 화면으로 갔다가 돌아옵니다. 연결하면 최근 90일 활동을 바로 가져옵니다.
             </Text>
-            <Button title="CONNECT STRAVA" onPress={() => void connectStrava()} disabled={busy} />
+            <Button title="Strava 연결" onPress={() => void connectStrava()} disabled={busy} />
           </View>
         ) : (
           <Message text="아직 Strava 연결을 쓸 수 없습니다. 관리자가 서버에 Strava 앱 키를 한 번 설정하면 여기에 연결 버튼이 생깁니다." />
@@ -259,17 +259,17 @@ export const Devices = () => {
                 {created.token}
               </Text>
               <TextButton title="토큰 복사" onPress={() => void copy(created.token).then((ok) => setNotice(ok ? '토큰을 복사했습니다.' : '토큰을 길게 눌러 복사하세요.'))} />
-              <Text selectable style={{ color: theme.text, fontSize: 11, fontFamily: mono, lineHeight: 17 }}>
+              <Text selectable style={{ color: theme.text, fontSize: 12, fontFamily: mono, lineHeight: 18 }}>
                 {`POST ${created.ingest_url}\nAuthorization: Bearer ${created.token.slice(0, 8)}…\nContent-Type: application/json\n\n{"date":"2026-10-21","type":"running","distance_km":5.2,"duration_min":28.5}`}
               </Text>
-              <Text style={{ color: theme.textMuted, fontSize: 11, lineHeight: 17 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18 }}>
                 type: running · 러닝 / strength · 웨이트 / 그 밖은 기타. 같은 기록을 다시 보내도 한 번만 저장됩니다.
               </Text>
             </View>
           ) : null}
 
           <Field label="기기 이름" value={deviceName} onChangeText={setDeviceName} placeholder="내 아이폰" />
-          <Button title="CREATE DEVICE TOKEN" variant="ghost" onPress={() => void createDevice()} disabled={busy} />
+          <Button title="기기 토큰 만들기" variant="ghost" onPress={() => void createDevice()} disabled={busy} />
         </View>
       ) : null}
     </View>

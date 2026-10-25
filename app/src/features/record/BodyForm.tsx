@@ -53,7 +53,7 @@ export const BodyForm = () => {
       <Message text={error} tone="error" />
       <Message text={result} />
 
-      <Button title="SAVE" onPress={() => void submit()} disabled={busy} />
+      <Button title="저장" onPress={() => void submit()} disabled={busy} />
     </View>
   );
 };

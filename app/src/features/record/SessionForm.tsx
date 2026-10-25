@@ -247,10 +247,10 @@ export const SessionForm = ({ plans, initialDate, onEditStart }: SessionFormProp
 
         <Message text={error} tone="error" />
         <Message text={notice} />
-        <Button title={busy ? 'SAVING…' : editingId ? 'UPDATE' : 'SAVE'} onPress={() => void save()} disabled={busy} />
+        <Button title={busy ? '저장하는 중…' : editingId ? '수정 저장' : '저장'} onPress={() => void save()} disabled={busy} />
         {editingId ? (
           <Button
-            title="CANCEL"
+            title="취소"
             variant="ghost"
             onPress={() => {
               setEditingId('');
@@ -265,7 +265,7 @@ export const SessionForm = ({ plans, initialDate, onEditStart }: SessionFormProp
       {recent.map((s) => (
         <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space(3), paddingBottom: space(3), borderBottomWidth: 1, borderBottomColor: theme.border }}>
           <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>
               {formatLongDate(s.performed_on)} · {KIND_LABELS[s.kind]} · {SOURCE_LABELS[s.source]}
             </Text>
             <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }} numberOfLines={1}>

@@ -125,7 +125,7 @@ export const PlanEditor = ({ plans, onSaved }: PlanEditorProps) => {
 
       <Message text={error} tone="error" />
       <Message text={notice} />
-      <Button title={busy ? 'SAVING…' : 'SAVE PLAN'} onPress={() => void save()} disabled={busy} />
+      <Button title={busy ? '저장하는 중…' : '계획 저장'} onPress={() => void save()} disabled={busy} />
 
       <SectionTitle title="Plan History" caption="계획을 고칠 때마다 버전이 남습니다. 불러오면 그 내용으로 편집을 시작합니다." />
       {plans.length === 0 ? <Message text="저장한 계획이 없습니다." /> : null}
@@ -142,7 +142,7 @@ export const PlanEditor = ({ plans, onSaved }: PlanEditorProps) => {
                 {formatShortDate(plan.effective_from)} ~ {until}
               </Text>
               {isCurrent || isFuture ? (
-                <Text style={{ color: theme.text, fontSize: 10, fontWeight: '800', letterSpacing: tracking.label }}>
+                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800', letterSpacing: tracking.label }}>
                   {isCurrent ? 'NOW' : 'NEXT'}
                 </Text>
               ) : null}

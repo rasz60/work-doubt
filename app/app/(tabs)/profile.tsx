@@ -62,7 +62,7 @@ const Profile = () => {
 
         <Field label="표시 이름" value={displayName} onChangeText={setDisplayName} />
         <Button
-          title="SAVE PROFILE"
+          title="프로필 저장"
           onPress={() =>
             void run(async () => {
               await api.updateProfile({ display_name: displayName });
@@ -79,7 +79,7 @@ const Profile = () => {
         <Divider strong />
 
         <View style={{ gap: space(1.5) }}>
-          <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: tracking.wide }}>
+          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: tracking.wide }}>
             GROUPS
           </Text>
           <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18 }}>
@@ -115,7 +115,7 @@ const Profile = () => {
 
         <Field label="새 그룹 이름" value={groupName} onChangeText={setGroupName} />
         <Button
-          title="CREATE GROUP"
+          title="그룹 만들기"
           variant="ghost"
           onPress={() =>
             void run(async () => {
@@ -128,7 +128,7 @@ const Profile = () => {
 
         <Field label="초대 코드" value={inviteCode} onChangeText={setInviteCode} />
         <Button
-          title="JOIN GROUP"
+          title="그룹 참여"
           variant="ghost"
           onPress={() =>
             void run(async () => {
@@ -146,7 +146,7 @@ const Profile = () => {
         <Divider />
 
         <Button
-          title="SIGN OUT"
+          title="로그아웃"
           variant="ghost"
           onPress={() => {
             void signOut().then(() => router.replace('/login'));

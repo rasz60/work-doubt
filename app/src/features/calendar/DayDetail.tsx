@@ -29,7 +29,7 @@ export const DayDetail = ({ day, onRecord, onPlan }: DayDetailProps) => {
           <View key={s.id} style={{ flexDirection: 'row', gap: space(2), alignItems: 'baseline' }}>
             <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800', width: 44 }}>{KIND_LABELS[s.kind]}</Text>
             <Text style={{ color: theme.text, fontSize: 13, flex: 1 }}>{describeSession(s)}</Text>
-            <Text style={{ color: theme.textMuted, fontSize: 11 }}>{SOURCE_LABELS[s.source]}</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>{SOURCE_LABELS[s.source]}</Text>
           </View>
         ))
       )}

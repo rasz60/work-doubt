@@ -31,7 +31,7 @@ export const Field = ({
 
   return (
     <View style={{ gap: space(1) }}>
-      <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '600' }}>{label}</Text>
+      <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -85,8 +85,7 @@ export const Button = ({ title, onPress, variant = 'primary', disabled = false }
         style={{
           color: primary ? theme.onAccent : theme.text,
           fontWeight: '700',
-          fontSize: 13,
-          letterSpacing: tracking.label,
+          fontSize: 15, // 버튼 글자는 한글 동작어라 자간을 벌리지 않는다
         }}
       >
         {title}
@@ -107,14 +106,14 @@ export const Heading = ({ eyebrow, title, caption }: HeadingProps) => {
 
   return (
     <View style={{ gap: space(1.5), paddingBottom: space(2) }}>
-      <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: tracking.wide }}>
+      <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: tracking.wide }}>
         {eyebrow.toUpperCase()}
       </Text>
       <Text style={{ color: theme.text, fontSize: 28, fontWeight: '800', letterSpacing: tracking.tight }}>
         {title}
       </Text>
       {caption ? (
-        <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18 }}>{caption}</Text>
+        <Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 20 }}>{caption}</Text>
       ) : null}
     </View>
   );
@@ -153,7 +152,7 @@ export const Message = ({ text, tone = 'muted' }: MessageProps) => {
   const theme = useTheme();
   if (!text) return null;
   return (
-    <Text style={{ color: tone === 'error' ? theme.danger : theme.textMuted, fontSize: 13 }}>{text}</Text>
+    <Text style={{ color: tone === 'error' ? theme.danger : theme.textMuted, fontSize: 14, lineHeight: 20 }}>{text}</Text>
   );
 };
 
@@ -189,7 +188,7 @@ export const Segmented = <T extends string>({ options, value, onChange }: Segmen
               borderLeftColor: theme.text,
             }}
           >
-            <Text style={{ color: selected ? theme.onAccent : theme.text, fontSize: 12, fontWeight: '700' }}>
+            <Text style={{ color: selected ? theme.onAccent : theme.text, fontSize: 13, fontWeight: '700' }}>
               {option.label}
             </Text>
           </Pressable>
@@ -211,12 +210,12 @@ export const SectionTitle = ({ title, caption, right }: SectionTitleProps) => {
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: theme.text, paddingTop: space(4), gap: space(1) }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800', letterSpacing: tracking.wide }}>
+        <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800', letterSpacing: tracking.wide }}>
           {title.toUpperCase()}
         </Text>
         {right}
       </View>
-      {caption ? <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18 }}>{caption}</Text> : null}
+      {caption ? <Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 20 }}>{caption}</Text> : null}
     </View>
   );
 };
@@ -237,7 +236,7 @@ export const MiniInput = ({ label, value, onChangeText, placeholder, keyboardTyp
   const [focused, setFocused] = React.useState<boolean>(false);
   return (
     <View style={{ flex, width, minWidth: 0, gap: 2 }}>
-      {label ? <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '600' }}>{label}</Text> : null}
+      {label ? <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '600' }}>{label}</Text> : null}
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -278,7 +277,7 @@ export const TextButton = ({ title, onPress, tone = 'default', disabled = false 
       hitSlop={6}
       style={({ pressed }) => ({ opacity: disabled ? 0.4 : pressed ? 0.6 : 1, paddingVertical: space(1) })}
     >
-      <Text style={{ color, fontSize: 12, fontWeight: '700' }}>{title}</Text>
+      <Text style={{ color, fontSize: 13, fontWeight: '700' }}>{title}</Text>
     </Pressable>
   );
 };
@@ -303,7 +302,7 @@ export const Chip = ({ label, selected, onPress }: ChipProps) => {
         backgroundColor: selected ? theme.accent : 'transparent',
       }}
     >
-      <Text style={{ color: selected ? theme.onAccent : theme.textMuted, fontSize: 12, fontWeight: selected ? '700' : '500' }}>
+      <Text style={{ color: selected ? theme.onAccent : theme.textMuted, fontSize: 13, fontWeight: selected ? '700' : '500' }}>
         {label}
       </Text>
     </Pressable>
@@ -321,11 +320,11 @@ export const Stat = ({ label, value, sub }: StatProps) => {
   const theme = useTheme();
   return (
     <View style={{ flexBasis: '30%', flexGrow: 1, minWidth: 92, gap: 2 }}>
-      <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '600' }}>{label}</Text>
+      <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>{label}</Text>
       <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800', letterSpacing: tracking.tight, fontVariant: ['tabular-nums'] }}>
         {value}
       </Text>
-      {sub ? <Text style={{ color: theme.textMuted, fontSize: 11 }}>{sub}</Text> : null}
+      {sub ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>{sub}</Text> : null}
     </View>
   );
 };

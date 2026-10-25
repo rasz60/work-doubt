@@ -69,7 +69,7 @@ const Login = () => {
 
         <Message text={error} tone="error" />
 
-        <Button title="SIGN IN" onPress={() => void submit()} disabled={busy} />
+        <Button title="로그인" onPress={() => void submit()} disabled={busy} />
       </ScrollView>
     </Screen>
   );
