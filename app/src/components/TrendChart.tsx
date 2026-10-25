@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-import { space, tracking, useTheme } from '@/theme';
+import { fonts, space, useTheme } from '@/theme';
 import type { MetricPoint, SeriesStats } from '@/types';
 
 interface TrendChartProps {
@@ -16,6 +16,8 @@ interface TrendChartProps {
   /** 변동폭 표시 (기본: 부호 + 소수 한 자리 + unit) */
   formatDelta?: (delta: number) => string;
   emptyText?: string;
+  /** 선 색 (운동 종류 색). 없으면 본문색 */
+  color?: string;
 }
 
 interface Scaled {
@@ -42,10 +44,12 @@ export const TrendChart = ({
   format,
   formatDelta,
   emptyText = '기록이 없습니다. 지표를 입력하면 변동폭이 표시됩니다.',
+  color,
 }: TrendChartProps) => {
   const show = format ?? ((value: number): string => `${value.toFixed(1)}${unit}`);
   const showDelta = formatDelta ?? ((delta: number): string => `${delta > 0 ? '+' : ''}${delta.toFixed(1)}${unit}`);
   const theme = useTheme();
+  const stroke = color ?? theme.text;
   const [selected, setSelected] = useState<number | null>(null);
 
   const innerWidth = width - PADDING.left - PADDING.right;
@@ -86,8 +90,8 @@ export const TrendChart = ({
   }
 
   const { delta, first, last } = series.stats;
-  // 모노크롬이라 증감은 색이 아니라 부호로 구분한다. 변화가 없을 때만 흐리게.
-  const deltaColor = delta === 0 ? theme.textMuted : delta > 0 ? theme.up : theme.down;
+  // 증감은 색이 아니라 부호로 구분한다 (늘어서 좋은 지표 · 줄어서 좋은 지표가 섞여 있다). 변화가 없을 때만 흐리게.
+  const deltaColor = delta === 0 ? theme.textMuted : theme.text;
   const active = selected === null ? null : points[selected] ?? null;
 
   const pickNearest = (x: number): void => {
@@ -118,19 +122,19 @@ export const TrendChart = ({
           y1={PADDING.top + innerHeight}
           x2={PADDING.left + innerWidth}
           y2={PADDING.top + innerHeight}
-          stroke={theme.grid}
+          stroke={theme.line}
           strokeWidth={1}
         />
 
-        <Path d={path} stroke={theme.accent} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
+        <Path d={path} stroke={stroke} strokeWidth={2.5} strokeLinecap="round" fill="none" strokeLinejoin="round" />
 
         {/* 마지막 점만 상시 표시하고, 나머지는 선택 시에만 강조한다. */}
         <Circle
           cx={points[points.length - 1]?.x}
           cy={points[points.length - 1]?.y}
           r={4}
-          fill={theme.accent}
-          stroke={theme.bg}
+          fill={stroke}
+          stroke={theme.surface}
           strokeWidth={2}
         />
 
@@ -145,7 +149,7 @@ export const TrendChart = ({
               strokeWidth={1}
               strokeDasharray="2,3"
             />
-            <Circle cx={active.x} cy={active.y} r={5} fill={theme.bg} stroke={theme.accent} strokeWidth={1.5} />
+            <Circle cx={active.x} cy={active.y} r={5} fill={theme.surface} stroke={stroke} strokeWidth={2} />
           </>
         )}
       </Svg>
@@ -169,23 +173,18 @@ export const TrendChart = ({
   );
 };
 
-const formatDate = (value?: string): string => (value ? value.slice(0, 10) : '-');
+// 2026-10-21 → 10.21
+const formatDate = (value?: string): string => (value ? `${Number(value.slice(5, 7))}.${Number(value.slice(8, 10))}` : '-');
 
 const createStyles = (theme: ReturnType<typeof useTheme>) =>
   StyleSheet.create({
-    // 박스 카드 대신 위쪽 굵은 선 하나로 섹션을 나누는 에디토리얼 레이아웃.
-    card: {
-      borderTopColor: theme.text,
-      borderTopWidth: 1,
-      paddingTop: space(4),
-      paddingBottom: space(6),
-      gap: space(3),
-    },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-    title: { color: theme.textMuted, fontSize: 12, fontWeight: '700' },
-    delta: { fontSize: 32, fontWeight: '800', letterSpacing: tracking.tight },
+    // 카드 안에 들어가므로 테두리 없이 제목 · 그래프 · 처음/마지막 값만
+    card: { gap: space(2) },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: space(3) },
+    title: { color: theme.textMuted, fontSize: 13, lineHeight: 18, fontWeight: '600', fontFamily: fonts.sans, flex: 1 },
+    delta: { fontSize: 28, lineHeight: 32, fontFamily: fonts.numBold, fontVariant: ['tabular-nums'] },
     footer: { flexDirection: 'row', justifyContent: 'space-between' },
-    axisLabel: { color: theme.textMuted, fontSize: 11, fontVariant: ['tabular-nums'] },
-    selectedLabel: { color: theme.text, fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] },
-    empty: { color: theme.textMuted, fontSize: 13 },
+    axisLabel: { color: theme.textMuted, fontSize: 13, fontFamily: fonts.num, fontVariant: ['tabular-nums'] },
+    selectedLabel: { color: theme.text, fontSize: 13, fontFamily: fonts.numBold, fontVariant: ['tabular-nums'] },
+    empty: { color: theme.textMuted, fontSize: 13, lineHeight: 19, fontFamily: fonts.sans },
   });

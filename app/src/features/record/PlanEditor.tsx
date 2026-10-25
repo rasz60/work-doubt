@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { describePlan } from '@/components/ActivityGrid';
-import { Button, Chip, Field, Message, MiniInput, SectionTitle, TextButton } from '@/components/ui';
+import { Button, Card, DateStepper, Field, KindDot, KindPicker, Message, SectionTitle, T, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { addDays, formatShortDate, todayString, weekdayLabel } from '@/lib/date';
-import { space, tracking, useTheme } from '@/theme';
+import { radius, space, useTheme } from '@/theme';
 import { KIND_LABELS, type Plan, type PlanKind } from '@/types';
 
 import { ExerciseBlocks } from './ExerciseBlocks';
 import { emptyBlock } from './exercises';
 import { examplePlan, fromDraft, toDraft, type DayDraft, type PlanDraft } from './plan';
 
-const PLAN_KINDS: PlanKind[] = ['rest', 'run', 'weight'];
+const PLAN_KINDS: { value: PlanKind; label: string }[] = (['rest', 'run', 'weight'] as const).map((value) => ({ value, label: KIND_LABELS[value] }));
 
 interface PlanEditorProps {
   plans: Plan[]; // 최신 버전부터
@@ -71,99 +71,132 @@ export const PlanEditor = ({ plans, onSaved }: PlanEditorProps) => {
   };
 
   return (
-    <View style={{ gap: space(5) }}>
-      <View style={{ gap: space(3) }}>
-        <Message text="요일마다 러닝(목표 거리 · 페이스) 또는 웨이트(종목 · 세트 · 횟수 · 중량)를 정합니다. 저장하면 적용 시작일부터 새 계획이 쓰이고, 그 전 날짜의 잔디는 예전 계획으로 채점됩니다." />
-        <View style={{ flexDirection: 'row', gap: space(4) }}>
-          <View style={{ flex: 1 }}>
-            <Field label="적용 시작일 (YYYY-MM-DD)" value={draft.effectiveFrom} onChangeText={(v) => setDraft((p) => ({ ...p, effectiveFrom: v }))} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field label="계획 이름 (선택)" value={draft.title} onChangeText={(v) => setDraft((p) => ({ ...p, title: v }))} />
-          </View>
-        </View>
-        <TextButton title="예시로 채우기 · 월수금 러닝 / 토일 웨이트" tone="muted" onPress={() => setDraft(examplePlan(draft.effectiveFrom))} />
-      </View>
+    <View style={{ gap: space(4) }}>
+      <Card style={{ gap: space(4) }}>
+        <T variant="label">적용 시작일</T>
+        <DateStepper value={draft.effectiveFrom} onChange={(v) => setDraft((p) => ({ ...p, effectiveFrom: v }))} />
+        <Field label="계획 이름 (선택)" value={draft.title} onChangeText={(v) => setDraft((p) => ({ ...p, title: v }))} placeholder="가을 10K 준비" />
+        <T variant="caption">저장하면 시작일부터 새 계획이 쓰이고, 그 전 날의 잔디는 예전 계획으로 채점돼요.</T>
+        <TextButton title="예시로 채우기 · 월수금 러닝, 토일 웨이트" tone="muted" onPress={() => setDraft(examplePlan(draft.effectiveFrom))} />
+      </Card>
 
       {draft.days.map((day) => (
-        <View key={day.weekday} style={{ gap: space(2), borderTopWidth: 1, borderTopColor: theme.border, paddingTop: space(3) }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
-            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800', width: 28 }}>{weekdayLabel(day.weekday)}</Text>
-            {PLAN_KINDS.map((kind) => (
-              <Chip
-                key={kind}
-                label={KIND_LABELS[kind]}
-                selected={day.kind === kind}
-                onPress={() =>
+        <Card key={day.weekday} kind={day.kind} style={{ gap: space(3) }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(3) }}>
+            <T variant="title" style={{ width: 30, fontSize: 22 }}>
+              {weekdayLabel(day.weekday)}
+            </T>
+            <View style={{ flex: 1 }}>
+              <KindPicker
+                size="small"
+                options={PLAN_KINDS}
+                value={day.kind}
+                onChange={(kind) =>
                   updateDay(day.weekday, {
                     kind,
                     blocks: kind === 'weight' && day.blocks.length === 0 ? [emptyBlock()] : day.blocks,
                   })
                 }
               />
-            ))}
+            </View>
           </View>
 
           {day.kind === 'run' ? (
-            <View style={{ flexDirection: 'row', gap: space(3), paddingLeft: 36 }}>
-              <MiniInput label="거리 (km)" value={day.distance} onChangeText={(v) => updateDay(day.weekday, { distance: v })} keyboardType="decimal-pad" flex={1} />
-              <MiniInput label="페이스 (분:초)" value={day.pace} onChangeText={(v) => updateDay(day.weekday, { pace: v })} placeholder="5:30" flex={1} />
-              <MiniInput label="목표 kcal" value={day.targetKcal} onChangeText={(v) => updateDay(day.weekday, { targetKcal: v })} keyboardType="number-pad" placeholder="자동" flex={1} />
+            <View style={{ flexDirection: 'row', gap: space(2) }}>
+              <Field label="거리" unit="km" value={day.distance} onChangeText={(v) => updateDay(day.weekday, { distance: v })} keyboardType="decimal-pad" style={{ flex: 1 }} />
+              <Field label="페이스" value={day.pace} onChangeText={(v) => updateDay(day.weekday, { pace: v })} digits placeholder="5:30" style={{ flex: 1 }} />
+              <Field
+                label="목표"
+                unit="kcal"
+                value={day.targetKcal}
+                onChangeText={(v) => updateDay(day.weekday, { targetKcal: v })}
+                keyboardType="number-pad"
+                placeholder="자동"
+                style={{ flex: 1 }}
+              />
             </View>
           ) : null}
 
           {day.kind === 'weight' ? (
-            <View style={{ gap: space(3), paddingLeft: 36 }}>
+            <View style={{ gap: space(3) }}>
               <ExerciseBlocks blocks={day.blocks} onChange={(blocks) => updateDay(day.weekday, { blocks })} />
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <MiniInput label="목표 kcal (선택)" value={day.targetKcal} onChangeText={(v) => updateDay(day.weekday, { targetKcal: v })} keyboardType="number-pad" placeholder="자동" width={96} />
-              </View>
+              <Field
+                label="목표 칼로리 (선택)"
+                unit="kcal"
+                value={day.targetKcal}
+                onChangeText={(v) => updateDay(day.weekday, { targetKcal: v })}
+                keyboardType="number-pad"
+                placeholder="자동"
+                style={{ width: 180 }}
+              />
             </View>
           ) : null}
-        </View>
+        </Card>
       ))}
 
       <Message text={error} tone="error" />
-      <Message text={notice} />
+      <Message text={notice} tone="ok" />
       <Button title={busy ? '저장하는 중…' : '계획 저장'} onPress={() => void save()} disabled={busy} />
 
-      <SectionTitle title="Plan History" caption="계획을 고칠 때마다 버전이 남습니다. 불러오면 그 내용으로 편집을 시작합니다." />
-      {plans.length === 0 ? <Message text="저장한 계획이 없습니다." /> : null}
-      {plans.map((plan, index) => {
-        const next = plans[index - 1]; // 목록이 최신부터라 바로 앞이 다음 버전
-        const until = next ? formatShortDate(addDays(next.effective_from, -1)) : '';
-        const isCurrent = plan.id === current?.id;
-        const isFuture = plan.effective_from > today;
-        const lines = plan.days.filter((d) => d.kind !== 'rest').map((d) => `${weekdayLabel(d.weekday)} ${describePlan(d)}`);
-        return (
-          <View key={plan.id} style={{ gap: space(1), paddingBottom: space(3), borderBottomWidth: 1, borderBottomColor: theme.border }}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space(2) }}>
-              <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
-                {formatShortDate(plan.effective_from)} ~ {until}
-              </Text>
-              {isCurrent || isFuture ? (
-                <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800', letterSpacing: tracking.label }}>
-                  {isCurrent ? 'NOW' : 'NEXT'}
-                </Text>
-              ) : null}
-              <Text style={{ color: theme.textMuted, fontSize: 12, flex: 1 }} numberOfLines={1}>
-                {plan.title}
-              </Text>
-            </View>
-            <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18 }}>{lines.length ? lines.join('\n') : '모두 휴식'}</Text>
-            <View style={{ flexDirection: 'row', gap: space(4) }}>
-              <TextButton
-                title="불러오기"
-                onPress={() => {
-                  setDraft(toDraft(plan.effective_from > today ? plan.effective_from : today, plan));
-                  setNotice('불러온 계획을 고친 뒤 저장하면 적용 시작일부터 새 버전이 됩니다.');
-                }}
-              />
-              <TextButton title={confirmDelete === plan.id ? '정말 지우기' : '지우기'} tone="danger" onPress={() => void remove(plan)} />
-            </View>
-          </View>
-        );
-      })}
+      <View style={{ height: space(2) }} />
+      <SectionTitle title="지난 계획" caption="계획을 고칠 때마다 버전이 남아요. 불러오면 그 내용으로 편집을 시작해요." />
+      {plans.length === 0 ? <Message text="저장한 계획이 없어요." /> : null}
+      {plans.length > 0 ? (
+        <Card style={{ paddingVertical: space(1), gap: 0 }}>
+          {plans.map((plan, index) => {
+            const next = plans[index - 1]; // 목록이 최신부터라 바로 앞이 다음 버전
+            const until = next ? formatShortDate(addDays(next.effective_from, -1)) : '';
+            const isCurrent = plan.id === current?.id;
+            const isFuture = plan.effective_from > today;
+            const active = plan.days.filter((d) => d.kind !== 'rest');
+            return (
+              <View key={plan.id} style={{ gap: space(2), paddingVertical: space(3), borderTopWidth: index === 0 ? 0 : 1, borderTopColor: theme.line }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+                  <T variant="numSm">
+                    {formatShortDate(plan.effective_from)} ~ {until}
+                  </T>
+                  {isCurrent || isFuture ? (
+                    <View style={{ backgroundColor: isCurrent ? theme.text : theme.rest.soft, borderRadius: radius.pill, paddingHorizontal: space(2), paddingVertical: 1 }}>
+                      <T variant="small" color={isCurrent ? theme.bg : theme.text}>
+                        {isCurrent ? '지금' : '예정'}
+                      </T>
+                    </View>
+                  ) : null}
+                  <T variant="caption" style={{ flex: 1 }} numberOfLines={1}>
+                    {plan.title}
+                  </T>
+                </View>
+                {active.length ? (
+                  active.map((d) => (
+                    <View key={d.weekday} style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+                      <KindDot kind={d.kind} size={8} />
+                      <T variant="caption" color={theme.text}>
+                        {weekdayLabel(d.weekday)} · {describePlan(d)}
+                      </T>
+                    </View>
+                  ))
+                ) : (
+                  <T variant="caption">모두 휴식</T>
+                )}
+                <View style={{ flexDirection: 'row', gap: space(5) }}>
+                  <TextButton
+                    title="불러오기"
+                    onPress={() => {
+                      setDraft(toDraft(plan.effective_from > today ? plan.effective_from : today, plan));
+                      setNotice('불러온 계획을 고쳐 저장하면 시작일부터 새 버전이 돼요.');
+                    }}
+                  />
+                  <TextButton
+                    title={confirmDelete === plan.id ? '정말 지울까요?' : '지우기'}
+                    tone={confirmDelete === plan.id ? 'danger' : 'muted'}
+                    onPress={() => void remove(plan)}
+                  />
+                </View>
+              </View>
+            );
+          })}
+        </Card>
+      ) : null}
     </View>
   );
 };

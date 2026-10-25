@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 
-import { Button, Field, Heading, Message, Screen } from '@/components/ui';
+import { Button, Card, Chip, Field, Heading, Message, Screen, T } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { askCoach } from '@/api/coachStream';
-import { space, tracking, useTheme } from '@/theme';
+import { radius, space, useTheme } from '@/theme';
 import { GOAL_LABELS, type ChatMessage, type Conversation, type Goal } from '@/types';
 
 const GOALS = Object.keys(GOAL_LABELS) as Goal[];
@@ -103,63 +103,49 @@ const Coach = () => {
 
   return (
     <Screen>
-      <Heading eyebrow="AI Coach" title={conversation ? conversation.title : 'AI 코치'} />
+      <View style={{ flex: 1, width: '100%', maxWidth: 640, alignSelf: 'center', gap: space(3), paddingBottom: space(3) }}>
+        <Heading title={conversation ? conversation.title : 'AI 코치'} caption={conversation ? undefined : '내 기록과 신체 지표를 보고 답해요.'} />
 
-      {!conversation && (
-        <View style={{ gap: space(2) }}>
-          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>목표를 고르세요</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(2) }}>
-            {GOALS.map((item) => {
-              const selected = goal === item;
-              return (
-                <Pressable
-                  key={item}
-                  onPress={() => setGoal(item)}
-                  style={{
-                    paddingHorizontal: space(4),
-                    paddingVertical: space(2),
-                    borderWidth: 1,
-                    borderColor: selected ? theme.accent : theme.border,
-                    backgroundColor: selected ? theme.accent : 'transparent',
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: selected ? theme.onAccent : theme.textMuted,
-                      fontSize: 13,
-                      fontWeight: selected ? '700' : '500',
-                    }}
-                  >
-                    {GOAL_LABELS[item]}
-                  </Text>
-                </Pressable>
-              );
-            })}
+        {!conversation && (
+          <View style={{ gap: space(2) }}>
+            <T variant="label">목표</T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(2) }}>
+              {GOALS.map((item) => (
+                <Chip key={item} label={GOAL_LABELS[item]} selected={goal === item} onPress={() => setGoal(item)} />
+              ))}
+            </View>
           </View>
-        </View>
-      )}
-
-      <ScrollView
-        ref={scrollRef}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ gap: space(5), paddingVertical: space(2) }}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-      >
-        {messages.length === 0 && !streaming && (
-          <Message text="예) 주 3회 운동할 수 있는데, 체지방을 줄이려면 어떤 루틴이 좋을까요?" />
         )}
 
-        {messages.map((message) => (
-          <Bubble key={message.id} role={message.role} content={message.content} />
-        ))}
-        {streaming !== '' && <Bubble role="assistant" content={streaming} />}
-      </ScrollView>
+        <ScrollView
+          ref={scrollRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ gap: space(3), paddingVertical: space(2) }}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        >
+          {messages.length === 0 && !streaming && (
+            <Card>
+              <T variant="label">이렇게 물어보세요</T>
+              <T variant="body">주 3회 운동할 수 있는데, 체지방을 줄이려면 어떤 루틴이 좋을까요?</T>
+            </Card>
+          )}
 
-      <Message text={error} tone="error" />
+          {messages.map((message) => (
+            <Bubble key={message.id} role={message.role} content={message.content} />
+          ))}
+          {streaming !== '' && <Bubble role="assistant" content={streaming} />}
+        </ScrollView>
 
-      <Field label="질문" value={draft} onChangeText={setDraft} multiline autoCapitalize="sentences" />
-      <Button title={busy ? '생각하는 중…' : '보내기'} onPress={() => void send()} disabled={busy} />
+        <Message text={error} tone="error" />
+
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space(2) }}>
+          <Field value={draft} onChangeText={setDraft} multiline autoCapitalize="sentences" placeholder="코치에게 물어보기" style={{ flex: 1 }} />
+          <View style={{ width: 92 }}>
+            <Button title={busy ? '…' : '보내기'} onPress={() => void send()} disabled={busy || !draft.trim()} />
+          </View>
+        </View>
+      </View>
     </Screen>
   );
 };
@@ -173,43 +159,25 @@ const Bubble = ({ role, content }: BubbleProps) => {
   const theme = useTheme();
   const mine = role === 'user';
 
-  // 내 질문은 검은(다크 모드에선 흰) 블록, 코치 답변은 왼쪽 세로선만 둔 본문 텍스트.
+  // 내 질문은 오른쪽 잉크색 말풍선, 코치 답변은 왼쪽 흰 카드
   return (
     <View
-      style={
-        mine
-          ? {
-              alignSelf: 'flex-end',
-              maxWidth: '85%',
-              backgroundColor: theme.accent,
-              paddingHorizontal: space(4),
-              paddingVertical: space(3),
-            }
-          : {
-              alignSelf: 'stretch',
-              borderLeftColor: theme.text,
-              borderLeftWidth: 2,
-              paddingLeft: space(4),
-              paddingVertical: space(1),
-            }
-      }
+      style={{
+        alignSelf: mine ? 'flex-end' : 'stretch',
+        maxWidth: mine ? '85%' : '100%',
+        backgroundColor: mine ? theme.text : theme.surface,
+        borderRadius: radius.card,
+        borderBottomRightRadius: mine ? 4 : radius.card,
+        borderTopLeftRadius: mine ? radius.card : 4,
+        paddingHorizontal: space(4),
+        paddingVertical: space(3),
+        gap: space(1),
+      }}
     >
-      {!mine && (
-        <Text
-          style={{
-            color: theme.textMuted,
-            fontSize: 11,
-            fontWeight: '700',
-            letterSpacing: tracking.label,
-            marginBottom: space(1.5),
-          }}
-        >
-          COACH
-        </Text>
-      )}
-      <Text style={{ color: mine ? theme.onAccent : theme.text, fontSize: 14, lineHeight: 22 }}>
+      {!mine && <T variant="small">코치</T>}
+      <T variant="body" color={mine ? theme.bg : theme.text} selectable style={{ lineHeight: 24 }}>
         {content}
-      </Text>
+      </T>
     </View>
   );
 };

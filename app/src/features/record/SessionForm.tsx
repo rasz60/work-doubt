@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { describePlan, describeSession } from '@/components/ActivityGrid';
-import { Button, Field, Message, SectionTitle, Segmented, TextButton } from '@/components/ui';
+import { Button, Card, DateStepper, Field, KindDot, KindPicker, Message, SectionTitle, T, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import type { SessionPayload } from '@/api/endpoints';
 import {
@@ -16,7 +16,7 @@ import {
   toNumber,
   todayString,
 } from '@/lib/date';
-import { space, useTheme } from '@/theme';
+import { radius, space, useTheme } from '@/theme';
 import { KIND_LABELS, SOURCE_LABELS, type Plan, type Session, type WorkoutKind } from '@/types';
 
 import { ExerciseBlocks } from './ExerciseBlocks';
@@ -96,7 +96,7 @@ const toPayload = (d: Draft): SessionPayload => {
 
 interface SessionFormProps {
   plans: Plan[];
-  /** HOME 에서 날짜를 골라 들어오면 그 날짜로 시작한다 */
+  /** 홈에서 날짜를 골라 들어오면 그 날짜로 시작한다 */
   initialDate?: string;
   /** 고치기를 누르면 폼이 있는 맨 위로 올린다 */
   onEditStart: () => void;
@@ -114,6 +114,8 @@ export const SessionForm = ({ plans, initialDate, onEditStart }: SessionFormProp
   const [error, setError] = useState<string>('');
   const [busy, setBusy] = useState<boolean>(false);
   const [confirmDelete, setConfirmDelete] = useState<string>('');
+  // 칼로리 · 심박 · 메모는 자주 안 쓰므로 접어 둔다 (값이 있으면 펼친다)
+  const [more, setMore] = useState<boolean>(false);
 
   const loadRecent = useCallback(async (): Promise<void> => {
     try {
@@ -130,7 +132,7 @@ export const SessionForm = ({ plans, initialDate, onEditStart }: SessionFormProp
     }, [loadRecent]),
   );
 
-  // HOME 에서 다른 날짜를 골라 다시 들어온 경우: 그 날짜 · 계획 종류로 새 기록을 시작한다
+  // 홈에서 다른 날짜를 골라 다시 들어온 경우: 그 날짜 · 계획 종류로 새 기록을 시작한다
   // 계획 목록이 늦게 도착하면 그때 한 번 더 맞춘다 (같은 날짜 · 계획 상태로는 한 번만 — 쓰던 입력을 덮지 않게)
   const applied = useRef<string>('');
   useEffect(() => {
@@ -197,98 +199,169 @@ export const SessionForm = ({ plans, initialDate, onEditStart }: SessionFormProp
   const duration = parseDuration(draft.duration);
   const distance = toNumber(draft.distance);
   const livePace = draft.kind === 'run' && duration && distance ? formatPace(duration / distance) : '';
+  const showMore = more || !!(draft.kcal || draft.heartRate || draft.memo);
+  const kindColor = draft.kind === 'run' ? theme.run : draft.kind === 'weight' ? theme.weight : theme.other;
 
   return (
-    <View style={{ gap: space(5) }}>
-      <View style={{ gap: space(4) }}>
-        <Field label="운동한 날 (YYYY-MM-DD)" value={draft.date} onChangeText={(v) => set({ date: v })} />
-        {planned ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(3) }}>
-            <Text style={{ color: theme.textMuted, fontSize: 12, flex: 1 }}>이날 계획 · {describePlan(planned)}</Text>
-            <TextButton title="계획대로 채우기" onPress={fillFromPlan} />
-          </View>
+    <View style={{ gap: space(4) }}>
+      <Card kind={draft.kind} style={{ gap: space(5) }}>
+        {editingId ? (
+          <T variant="label" color={kindColor.ink}>
+            기록 고치는 중
+          </T>
         ) : null}
-        <Segmented
+        <DateStepper value={draft.date} onChange={(date) => set({ date })} max={today} />
+
+        <KindPicker
           options={KINDS}
           value={draft.kind}
           onChange={(kind) => set({ kind, blocks: kind === 'weight' && draft.blocks.length === 0 ? [emptyBlock()] : draft.blocks })}
         />
 
+        {planned ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: space(3),
+              backgroundColor: theme.field,
+              borderRadius: radius.box,
+              paddingHorizontal: space(3),
+              paddingVertical: space(2),
+            }}
+          >
+            <KindDot kind={planned.kind} />
+            <T variant="caption" color={theme.text} style={{ flex: 1 }}>
+              계획 · {describePlan(planned)}
+            </T>
+            {planned.kind !== 'rest' ? <TextButton title="계획대로 채우기" onPress={fillFromPlan} /> : null}
+          </View>
+        ) : null}
+
         {draft.kind === 'other' ? <Field label="운동 이름" value={draft.title} onChangeText={(v) => set({ title: v })} placeholder="수영, 자전거 …" /> : null}
 
         {draft.kind !== 'weight' ? (
-          <View style={{ flexDirection: 'row', gap: space(4) }}>
-            <View style={{ flex: 1 }}>
-              <Field label="거리 (km)" value={draft.distance} onChangeText={(v) => set({ distance: v })} keyboardType="decimal-pad" />
+          <View style={{ gap: space(3) }}>
+            <View style={{ flexDirection: 'row', gap: space(3) }}>
+              <Field
+                label="거리"
+                unit="km"
+                value={draft.distance}
+                onChangeText={(v) => set({ distance: v })}
+                keyboardType="decimal-pad"
+                placeholder="5.0"
+                style={{ flex: 1 }}
+              />
+              <Field label="시간" value={draft.duration} onChangeText={(v) => set({ duration: v })} digits placeholder="28:30" hint="분:초 · 1:02:03" style={{ flex: 1 }} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Field label="시간 (분:초)" value={draft.duration} onChangeText={(v) => set({ duration: v })} placeholder="28:30" />
-            </View>
-          </View>
-        ) : null}
-        {livePace ? <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>페이스 {livePace} /km</Text> : null}
-
-        {draft.kind === 'weight' ? (
-          <View style={{ gap: space(2) }}>
-            <ExerciseBlocks blocks={draft.blocks} onChange={(blocks) => set({ blocks })} />
-            <Field label="운동 시간 (분:초 또는 분, 선택)" value={draft.duration} onChangeText={(v) => set({ duration: v })} placeholder="50" />
-          </View>
-        ) : null}
-
-        <View style={{ flexDirection: 'row', gap: space(4) }}>
-          <View style={{ flex: 1 }}>
-            <Field label="소비 칼로리 (선택)" value={draft.kcal} onChangeText={(v) => set({ kcal: v })} keyboardType="decimal-pad" placeholder="비우면 추정" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field label="평균 심박 (선택)" value={draft.heartRate} onChangeText={(v) => set({ heartRate: v })} keyboardType="decimal-pad" />
-          </View>
-        </View>
-        <Field label="메모" value={draft.memo} onChangeText={(v) => set({ memo: v })} multiline autoCapitalize="sentences" />
-
-        <Message text={error} tone="error" />
-        <Message text={notice} />
-        <Button title={busy ? '저장하는 중…' : editingId ? '수정 저장' : '저장'} onPress={() => void save()} disabled={busy} />
-        {editingId ? (
-          <Button
-            title="취소"
-            variant="ghost"
-            onPress={() => {
-              setEditingId('');
-              setDraft(emptyDraft(draft.date, draft.kind));
-            }}
-          />
-        ) : null}
-      </View>
-
-      <SectionTitle title="Recent 2 Weeks" caption="연동한 기기 · 앱에서 들어온 기록도 여기서 고칠 수 있습니다 (메모 · 세트 추가 등)." />
-      {recent.length === 0 ? <Message text="최근 2주 기록이 없습니다." /> : null}
-      {recent.map((s) => (
-        <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space(3), paddingBottom: space(3), borderBottomWidth: 1, borderBottomColor: theme.border }}>
-          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-              {formatLongDate(s.performed_on)} · {KIND_LABELS[s.kind]} · {SOURCE_LABELS[s.source]}
-            </Text>
-            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }} numberOfLines={1}>
-              {describeSession(s)}
-            </Text>
-            {s.memo ? (
-              <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>
-                {s.memo}
-              </Text>
+            {livePace ? (
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space(2) }}>
+                <T variant="label">페이스</T>
+                <T variant="numLg" color={kindColor.ink}>
+                  {livePace}
+                </T>
+                <T variant="label">/km</T>
+              </View>
             ) : null}
           </View>
-          <TextButton
-            title="고치기"
-            onPress={() => {
-              setEditingId(s.id);
-              setDraft(toDraft(s));
-              setNotice('');
-              onEditStart();
-            }}
-          />
-          <TextButton title={confirmDelete === s.id ? '정말 지우기' : '지우기'} tone="danger" onPress={() => void remove(s)} />
+        ) : null}
+
+        {draft.kind === 'weight' ? (
+          <View style={{ gap: space(4) }}>
+            <ExerciseBlocks blocks={draft.blocks} onChange={(blocks) => set({ blocks })} />
+            <Field label="운동 시간 (선택)" unit="분" value={draft.duration} onChangeText={(v) => set({ duration: v })} digits placeholder="50" style={{ width: 160 }} />
+          </View>
+        ) : null}
+
+        {showMore ? (
+          <View style={{ gap: space(3) }}>
+            <View style={{ flexDirection: 'row', gap: space(3) }}>
+              <Field
+                label="소비 칼로리"
+                unit="kcal"
+                value={draft.kcal}
+                onChangeText={(v) => set({ kcal: v })}
+                keyboardType="decimal-pad"
+                placeholder="자동"
+                style={{ flex: 1 }}
+              />
+              <Field label="평균 심박" unit="bpm" value={draft.heartRate} onChangeText={(v) => set({ heartRate: v })} keyboardType="decimal-pad" style={{ flex: 1 }} />
+            </View>
+            <Field label="메모" value={draft.memo} onChangeText={(v) => set({ memo: v })} multiline autoCapitalize="sentences" placeholder="컨디션, 느낀 점 …" />
+          </View>
+        ) : (
+          <TextButton title="+ 칼로리 · 심박 · 메모" tone="muted" onPress={() => setMore(true)} />
+        )}
+
+        <Message text={error} tone="error" />
+        <Message text={notice} tone="ok" />
+        <View style={{ gap: space(2) }}>
+          <Button title={busy ? '저장하는 중…' : editingId ? '고친 내용 저장' : '저장'} kind={draft.kind} onPress={() => void save()} disabled={busy} />
+          {editingId ? (
+            <Button
+              title="고치기 취소"
+              variant="secondary"
+              onPress={() => {
+                setEditingId('');
+                setDraft(emptyDraft(draft.date, draft.kind));
+              }}
+            />
+          ) : null}
         </View>
-      ))}
+      </Card>
+
+      <SectionTitle title="최근 2주" caption="연동한 기기 · 앱에서 들어온 기록도 고칠 수 있어요." />
+      {recent.length === 0 ? <Message text="최근 2주 기록이 없어요." /> : null}
+      {recent.length > 0 ? (
+        <Card style={{ paddingVertical: space(1), gap: 0 }}>
+          {recent.map((s, i) => (
+            <View
+              key={s.id}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: space(3),
+                paddingVertical: space(3),
+                borderTopWidth: i === 0 ? 0 : 1,
+                borderTopColor: theme.line,
+                opacity: editingId === s.id ? 0.5 : 1,
+              }}
+            >
+              <KindDot kind={s.kind} />
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <T variant="small" style={{ fontWeight: '500' }}>
+                  {formatLongDate(s.performed_on)} · {KIND_LABELS[s.kind]}
+                  {s.source !== 'manual' ? ` · ${SOURCE_LABELS[s.source]}` : ''}
+                </T>
+                <T variant="bodyStrong" numberOfLines={1}>
+                  {describeSession(s)}
+                </T>
+                {s.memo ? (
+                  <T variant="caption" numberOfLines={1}>
+                    {s.memo}
+                  </T>
+                ) : null}
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <TextButton
+                  title="고치기"
+                  onPress={() => {
+                    setEditingId(s.id);
+                    setDraft(toDraft(s));
+                    setNotice('');
+                    onEditStart();
+                  }}
+                />
+                <TextButton
+                  title={confirmDelete === s.id ? '정말 지울까요?' : '지우기'}
+                  tone={confirmDelete === s.id ? 'danger' : 'muted'}
+                  onPress={() => void remove(s)}
+                />
+              </View>
+            </View>
+          ))}
+        </Card>
+      ) : null}
     </View>
   );
 };

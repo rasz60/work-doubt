@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, Field, Message } from '@/components/ui';
+import { Button, Card, DateStepper, Field, Message } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { toNumber, todayString } from '@/lib/date';
 import { space } from '@/theme';
 
 // 신체 지표(키 · 체중 · 골격근량 · 체지방률). 체중은 소비 칼로리 추정과 AI 코치가 쓴다.
 export const BodyForm = () => {
-  const [measuredAt, setMeasuredAt] = useState<string>(todayString());
+  const today = todayString();
+  const [measuredAt, setMeasuredAt] = useState<string>(today);
   const [height, setHeight] = useState<string>('');
   const [weight, setWeight] = useState<string>('');
   const [muscle, setMuscle] = useState<string>('');
@@ -31,29 +32,32 @@ export const BodyForm = () => {
         body_fat_percentage: toNumber(fat),
         memo: memo || undefined,
       });
-      setResult(saved.bmi ? `저장했습니다. BMI ${saved.bmi.toFixed(1)}` : '저장했습니다.');
+      setResult(saved.bmi ? `저장했어요. BMI ${saved.bmi.toFixed(1)}` : '저장했어요.');
       setMemo('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+      setError(err instanceof Error ? err.message : '저장하지 못했습니다.');
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <View style={{ gap: space(5) }}>
-      <Message text="같은 날짜를 다시 저장하면 기존 기록을 덮어씁니다. 체중은 소비 칼로리 추정에 쓰이고, BMI 는 키와 체중으로 자동 계산됩니다." />
-      <Field label="측정일 (YYYY-MM-DD)" value={measuredAt} onChangeText={setMeasuredAt} />
-      <Field label="키 (cm)" value={height} onChangeText={setHeight} keyboardType="decimal-pad" />
-      <Field label="체중 (kg)" value={weight} onChangeText={setWeight} keyboardType="decimal-pad" />
-      <Field label="골격근량 (kg)" value={muscle} onChangeText={setMuscle} keyboardType="decimal-pad" />
-      <Field label="체지방률 (%)" value={fat} onChangeText={setFat} keyboardType="decimal-pad" />
+    <Card style={{ gap: space(5) }}>
+      <DateStepper value={measuredAt} onChange={setMeasuredAt} max={today} />
+      <View style={{ flexDirection: 'row', gap: space(3) }}>
+        <Field label="체중" unit="kg" value={weight} onChangeText={setWeight} keyboardType="decimal-pad" style={{ flex: 1 }} />
+        <Field label="키" unit="cm" value={height} onChangeText={setHeight} keyboardType="decimal-pad" style={{ flex: 1 }} />
+      </View>
+      <View style={{ flexDirection: 'row', gap: space(3) }}>
+        <Field label="골격근량" unit="kg" value={muscle} onChangeText={setMuscle} keyboardType="decimal-pad" style={{ flex: 1 }} />
+        <Field label="체지방률" unit="%" value={fat} onChangeText={setFat} keyboardType="decimal-pad" style={{ flex: 1 }} />
+      </View>
       <Field label="메모" value={memo} onChangeText={setMemo} multiline autoCapitalize="sentences" />
+      <Message text="같은 날짜에 다시 저장하면 덮어써요. 체중은 칼로리 추정에, 키와 체중은 BMI 계산에 쓰여요." />
 
       <Message text={error} tone="error" />
-      <Message text={result} />
-
-      <Button title="저장" onPress={() => void submit()} disabled={busy} />
-    </View>
+      <Message text={result} tone="ok" />
+      <Button title={busy ? '저장하는 중…' : '저장'} onPress={() => void submit()} disabled={busy} />
+    </Card>
   );
 };

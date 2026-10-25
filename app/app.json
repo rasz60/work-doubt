@@ -19,10 +19,11 @@
       "bundler": "metro",
       "output": "single",
       "name": "운동기록",
-      "themeColor": "#000000"
+      "themeColor": "#eef0f3"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-font"
     ],
     "experiments": {
       "baseUrl": "/workout",

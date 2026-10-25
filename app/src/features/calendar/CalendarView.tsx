@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { ActivityGrid, ActivityLegend } from '@/components/ActivityGrid';
-import { Message, Segmented } from '@/components/ui';
+import { Card, Message, Segmented, T } from '@/components/ui';
 import {
   addDays,
   addMonths,
@@ -14,7 +14,7 @@ import {
   startOfWeek,
   todayString,
 } from '@/lib/date';
-import { space, tracking, useTheme } from '@/theme';
+import { radius, space, useTheme } from '@/theme';
 
 import { DayDetail } from './DayDetail';
 import { useCalendar } from './useCalendar';
@@ -22,8 +22,8 @@ import { useCalendar } from './useCalendar';
 type Mode = 'week' | 'month';
 
 const MODES: { value: Mode; label: string }[] = [
-  { value: 'week', label: '주' },
   { value: 'month', label: '월' },
+  { value: 'week', label: '주' },
 ];
 
 export const visibleRange = (mode: Mode, anchor: string): { from: string; to: string } => {
@@ -41,7 +41,7 @@ interface CalendarViewProps {
   onPlan: () => void;
 }
 
-// RECORD › 캘린더: 주(하루 한 줄로 계획과 한 일) · 월(달력) 잔디.
+// 기록 › 캘린더: 월(달력) · 주(하루 한 줄로 계획과 한 일) 잔디.
 export const CalendarView = ({ onRecord, onPlan }: CalendarViewProps) => {
   const theme = useTheme();
   const today = todayString();
@@ -66,37 +66,65 @@ export const CalendarView = ({ onRecord, onPlan }: CalendarViewProps) => {
   const selectedDay = days.find((d) => d.date === selected);
   const label = mode === 'month' ? formatMonth(month) : `${formatShortDate(from)} – ${formatShortDate(to)}`;
 
+  const arrow = (glyph: string, a11y: string, step: number) => (
+    <Pressable
+      onPress={() => move(step)}
+      accessibilityLabel={a11y}
+      hitSlop={6}
+      style={({ pressed }) => ({
+        width: 40,
+        height: 40,
+        borderRadius: radius.box,
+        backgroundColor: theme.field,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <T variant="heading">{glyph}</T>
+    </Pressable>
+  );
+
   return (
     <View style={{ gap: space(4) }}>
-      <Segmented options={MODES} value={mode} onChange={setMode} />
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Pressable onPress={() => move(-1)} hitSlop={10} accessibilityLabel="이전">
-          <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800', paddingHorizontal: space(2) }}>‹</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            setAnchor(today);
-            setSelected(today);
-          }}
-          accessibilityLabel="오늘로"
-        >
-          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', letterSpacing: tracking.tight }}>{label}</Text>
-        </Pressable>
-        <Pressable onPress={() => move(1)} hitSlop={10} accessibilityLabel="다음">
-          <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800', paddingHorizontal: space(2) }}>›</Text>
-        </Pressable>
-      </View>
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+          {arrow('‹', '이전', -1)}
+          <Pressable
+            onPress={() => {
+              setAnchor(today);
+              setSelected(today);
+            }}
+            accessibilityLabel="오늘로"
+            style={{ flex: 1, alignItems: 'center' }}
+          >
+            <T variant="heading">{label}</T>
+          </Pressable>
+          {arrow('›', '다음', 1)}
+        </View>
+        <View style={{ width: 120, alignSelf: 'center' }}>
+          <Segmented options={MODES} value={mode} onChange={setMode} />
+        </View>
 
-      <Message text={error} tone="error" />
-      <ActivityGrid mode={mode} days={days} month={mode === 'month' ? month : undefined} today={today} selected={selected} onSelect={setSelected} />
-      <ActivityLegend />
-      {mode === 'month' && monthDays.length > 0 ? (
-        <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
-          {formatMonth(month)} 계획 {monthDays.length}일 중 {doneDays}일 완료 (오늘까지)
-        </Text>
+        <Message text={error} tone="error" />
+        <ActivityGrid mode={mode} days={days} month={mode === 'month' ? month : undefined} today={today} selected={selected} onSelect={setSelected} />
+        <ActivityLegend />
+        {mode === 'month' && monthDays.length > 0 ? (
+          <T variant="label">
+            {formatMonth(month)} 계획 {monthDays.length}일 중{' '}
+            <T variant="label" color={theme.text} style={{ fontWeight: '800' }}>
+              {doneDays}일
+            </T>{' '}
+            완료 (오늘까지)
+          </T>
+        ) : null}
+      </Card>
+
+      {selectedDay ? (
+        <Card>
+          <DayDetail day={selectedDay} onRecord={onRecord} onPlan={onPlan} />
+        </Card>
       ) : null}
-
-      {selectedDay ? <DayDetail day={selectedDay} onRecord={onRecord} onPlan={onPlan} /> : null}
     </View>
   );
 };

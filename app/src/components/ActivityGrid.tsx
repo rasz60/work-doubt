@@ -1,24 +1,23 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
-import { WEEKDAY_LABELS, formatDuration, formatKm, formatPace, formatShortDate, weekdayLabel } from '@/lib/date';
-import { space, tracking, useTheme, type Theme } from '@/theme';
-import type { CalendarDay, DayStatus, PlanDay, Session } from '@/types';
-
-// 잔디 진하기 (0~4). 모노크롬이라 회색 단계로 나눈다. 0 은 계획 · 기록이 없는 날.
-const RAMP_LIGHT = ['#f3f3f3', '#d9d9d9', '#a6a6a6', '#595959', '#000000'] as const;
-const RAMP_DARK = ['#141414', '#3a3a3a', '#6b6b6b', '#b0b0b0', '#ffffff'] as const;
+import { T, KindDot } from '@/components/ui';
+import { WEEKDAY_LABELS, formatDuration, formatKm, formatPace, weekdayLabel } from '@/lib/date';
+import { alpha, kindColors, radius, space, useTheme, type Theme } from '@/theme';
+import type { CalendarDay, DayStatus, PlanDay, PlanKind, Session, WorkoutKind } from '@/types';
 
 export const STATUS_LABELS: Record<DayStatus, string> = {
   rest: '휴식',
   planned: '예정',
   done: '완료',
   partial: '일부',
-  missed: '미수행',
+  missed: '못 함',
   extra: '추가 운동',
 };
 
-const ramp = (theme: Theme): readonly string[] => (theme.bg === '#000000' ? RAMP_DARK : RAMP_LIGHT);
+/** 그날의 운동 종류: 한 운동이 있으면 그것, 없으면 계획 */
+export const dayKind = (day: Pick<CalendarDay, 'planned' | 'sessions'>): WorkoutKind | PlanKind | undefined =>
+  day.sessions[0]?.kind ?? (day.planned && day.planned.kind !== 'rest' ? day.planned.kind : undefined);
 
 interface CellLook {
   backgroundColor: string;
@@ -27,28 +26,30 @@ interface CellLook {
   textColor: string;
 }
 
-/** 칸 모양: 채운 정도는 회색 단계, 지난 계획을 안 한 날은 점선 테두리, 앞으로의 계획은 옅은 테두리 */
-export const cellLook = (day: Pick<CalendarDay, 'status' | 'level'>, theme: Theme): CellLook => {
-  const colors = ramp(theme);
-  const dark = day.level >= 3;
+// 잔디 진하기 (1~4) → 종류 색의 투명도
+const LEVEL_ALPHA = [0, 0.22, 0.42, 0.7, 1] as const;
+
+/** 칸 모양: 색 = 운동 종류, 진하기 = 달성 정도. 못 한 날은 점선, 앞으로의 계획은 종류 색 테두리 */
+export const cellLook = (day: Pick<CalendarDay, 'status' | 'level' | 'planned' | 'sessions'>, theme: Theme): CellLook => {
+  const c = kindColors(theme, dayKind(day));
   switch (day.status) {
     case 'missed':
-      return { backgroundColor: theme.bg, borderColor: theme.text, borderStyle: 'dashed', textColor: theme.textMuted };
+      return { backgroundColor: theme.surface, borderColor: theme.fieldBorder, borderStyle: 'dashed', textColor: theme.textMuted };
     case 'planned':
-      return { backgroundColor: theme.bg, borderColor: theme.textMuted, borderStyle: 'solid', textColor: theme.text };
+      return { backgroundColor: theme.surface, borderColor: c.solid, borderStyle: 'solid', textColor: c.ink };
     case 'rest':
-      return { backgroundColor: colors[0] ?? theme.grid, borderColor: 'transparent', borderStyle: 'solid', textColor: theme.textMuted };
-    default:
+      return { backgroundColor: theme.dark ? theme.field : theme.line, borderColor: 'transparent', borderStyle: 'solid', textColor: theme.textMuted };
+    default: {
+      const level = Math.max(1, Math.min(4, day.level));
       return {
-        backgroundColor: colors[Math.max(1, Math.min(4, day.level))] ?? theme.text,
+        backgroundColor: alpha(c.solid, LEVEL_ALPHA[level] ?? 1),
         borderColor: 'transparent',
         borderStyle: 'solid',
-        textColor: dark ? theme.bg : theme.text,
+        textColor: level >= 3 ? theme.onKind : theme.text,
       };
+    }
   }
 };
-
-const kindMark = (planned?: PlanDay): string => (planned?.kind === 'run' ? 'R' : planned?.kind === 'weight' ? 'W' : '');
 
 /** 계획 한 줄 요약: 러닝 5km · 5'30" / 웨이트 3종목 12세트 */
 export const describePlan = (planned?: PlanDay): string => {
@@ -81,6 +82,10 @@ export const describeSession = (s: Session): string => {
   return parts.join(' · ') || s.title;
 };
 
+/** 상태 한 마디: 일부는 달성률로 */
+export const statusText = (day: Pick<CalendarDay, 'status' | 'achievement'>): string =>
+  day.status === 'partial' ? `${Math.round(day.achievement * 100)}%` : STATUS_LABELS[day.status];
+
 interface ActivityGridProps {
   mode: 'week' | 'month';
   days: CalendarDay[];
@@ -107,16 +112,16 @@ const MonthGrid = ({ days, month, today, selected, onSelect }: GridProps) => {
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
 
   return (
-    <View style={{ gap: space(1) }}>
-      <View style={{ flexDirection: 'row', gap: space(1) }}>
+    <View style={{ gap: space(1.5) }}>
+      <View style={{ flexDirection: 'row', gap: space(1.5) }}>
         {WEEKDAY_LABELS.map((label) => (
-          <Text key={label} style={{ flex: 1, textAlign: 'center', color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>
+          <T key={label} variant="small" style={{ flex: 1, textAlign: 'center' }}>
             {label}
-          </Text>
+          </T>
         ))}
       </View>
       {weeks.map((week) => (
-        <View key={week[0]?.date} style={{ flexDirection: 'row', gap: space(1) }}>
+        <View key={week[0]?.date} style={{ flexDirection: 'row', gap: space(1.5) }}>
           {week.map((day) => {
             const look = cellLook(day, theme);
             const outside = month !== undefined && !day.date.startsWith(month);
@@ -128,32 +133,40 @@ const MonthGrid = ({ days, month, today, selected, onSelect }: GridProps) => {
                 onPress={() => onSelect(day.date)}
                 accessibilityRole="button"
                 accessibilityLabel={`${day.date} ${STATUS_LABELS[day.status]}`}
+                accessibilityState={{ selected: isSelected }}
                 style={{
                   flex: 1,
                   aspectRatio: 1,
+                  borderRadius: 8,
                   backgroundColor: look.backgroundColor,
-                  borderWidth: isSelected ? 2 : 1,
-                  borderColor: isSelected ? theme.text : look.borderColor,
-                  borderStyle: isSelected ? 'solid' : look.borderStyle,
-                  opacity: outside ? 0.3 : 1,
-                  padding: 3,
-                  justifyContent: 'space-between',
+                  borderWidth: look.borderColor === 'transparent' ? 0 : 1.5,
+                  borderColor: look.borderColor,
+                  borderStyle: look.borderStyle,
+                  opacity: outside ? 0.35 : 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                <Text
-                  style={{
-                    color: look.textColor,
-                    fontSize: 11,
-                    fontWeight: isToday ? '900' : '600',
-                    textDecorationLine: isToday ? 'underline' : 'none',
-                    fontVariant: ['tabular-nums'],
-                  }}
-                >
+                <T variant="numSm" color={look.textColor}>
                   {Number(day.date.slice(8, 10))}
-                </Text>
-                <Text style={{ color: look.textColor, fontSize: 8, fontWeight: '800', alignSelf: 'flex-end', letterSpacing: 0.5 }}>
-                  {day.status === 'extra' ? '+' : kindMark(day.planned)}
-                </Text>
+                </T>
+                {/* 고른 칸 · 오늘은 칸 바깥 테두리로 (칸 안의 색을 가리지 않게) */}
+                {isSelected || isToday ? (
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      top: -3,
+                      left: -3,
+                      right: -3,
+                      bottom: -3,
+                      borderRadius: 10,
+                      borderWidth: 2,
+                      borderColor: isSelected ? theme.text : theme.textMuted,
+                      borderStyle: isSelected ? 'solid' : 'dotted',
+                    }}
+                  />
+                ) : null}
               </Pressable>
             );
           })}
@@ -167,7 +180,7 @@ const MonthGrid = ({ days, month, today, selected, onSelect }: GridProps) => {
 const WeekList = ({ days, today, selected, onSelect }: GridProps) => {
   const theme = useTheme();
   return (
-    <View>
+    <View style={{ gap: space(1) }}>
       {days.map((day) => {
         const look = cellLook(day, theme);
         const isSelected = day.date === selected;
@@ -176,52 +189,49 @@ const WeekList = ({ days, today, selected, onSelect }: GridProps) => {
           <Pressable
             key={day.date}
             onPress={() => onSelect(day.date)}
+            accessibilityState={{ selected: isSelected }}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               gap: space(3),
-              paddingVertical: space(2.5),
-              paddingHorizontal: space(1),
-              borderBottomWidth: 1,
-              borderBottomColor: theme.border,
-              backgroundColor: isSelected ? theme.grid : 'transparent',
+              padding: space(2),
+              borderRadius: radius.tile,
+              backgroundColor: isSelected ? theme.surface : 'transparent',
             }}
           >
             <View
               style={{
-                width: 40,
-                height: 40,
+                width: 46,
+                height: 46,
+                borderRadius: 8,
                 backgroundColor: look.backgroundColor,
-                borderWidth: 1,
+                borderWidth: look.borderColor === 'transparent' ? 0 : 1.5,
                 borderColor: look.borderColor,
                 borderStyle: look.borderStyle,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ color: look.textColor, fontSize: 10, fontWeight: '700' }}>{weekdayLabel(day.weekday)}</Text>
-              <Text
-                style={{
-                  color: look.textColor,
-                  fontSize: 13,
-                  fontWeight: '800',
-                  textDecorationLine: day.date === today ? 'underline' : 'none',
-                }}
-              >
+              <T variant="small" color={look.textColor} style={{ lineHeight: 14 }}>
+                {weekdayLabel(day.weekday)}
+              </T>
+              <T variant="numSm" color={look.textColor} style={{ textDecorationLine: day.date === today ? 'underline' : 'none' }}>
                 {Number(day.date.slice(8, 10))}
-              </Text>
+              </T>
             </View>
             <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-              <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>
-                {formatShortDate(day.date)} 계획 · {describePlan(day.planned)}
-              </Text>
-              <Text style={{ color: done ? theme.text : theme.textMuted, fontSize: 13, fontWeight: done ? '700' : '400' }} numberOfLines={1}>
-                {done || (day.status === 'missed' ? '기록 없음' : '-')}
-              </Text>
+              <T variant={done ? 'bodyStrong' : 'body'} color={done ? theme.text : theme.textMuted} numberOfLines={1}>
+                {done || (day.status === 'missed' ? '기록 없음' : describePlan(day.planned))}
+              </T>
+              {done ? (
+                <T variant="caption" numberOfLines={1}>
+                  계획 {describePlan(day.planned)}
+                </T>
+              ) : null}
             </View>
-            <Text style={{ color: day.status === 'missed' ? theme.text : theme.textMuted, fontSize: 12, fontWeight: '700' }}>
-              {day.status === 'partial' ? `${Math.round(day.achievement * 100)}%` : STATUS_LABELS[day.status]}
-            </Text>
+            <T variant="small" color={day.status === 'missed' ? theme.text : theme.textMuted}>
+              {statusText(day)}
+            </T>
           </Pressable>
         );
       })}
@@ -229,37 +239,45 @@ const WeekList = ({ days, today, selected, onSelect }: GridProps) => {
   );
 };
 
-// 범례
+// 범례: 색 = 종류, 진하기 = 달성, 점선 = 못 한 날
 export const ActivityLegend = () => {
   const theme = useTheme();
-  const items: { label: string; day: Pick<CalendarDay, 'status' | 'level'> }[] = [
-    { label: '휴식', day: { status: 'rest', level: 0 } },
-    { label: '예정', day: { status: 'planned', level: 0 } },
-    { label: '미수행', day: { status: 'missed', level: 0 } },
-    { label: '일부', day: { status: 'partial', level: 2 } },
-    { label: '완료', day: { status: 'done', level: 4 } },
-  ];
+  const swatch = (look: Partial<CellLook>) => (
+    <View
+      style={{
+        width: 14,
+        height: 14,
+        borderRadius: 4,
+        backgroundColor: look.backgroundColor,
+        borderWidth: look.borderColor ? 1.5 : 0,
+        borderColor: look.borderColor,
+        borderStyle: look.borderStyle,
+      }}
+    />
+  );
+  const item = (key: string, mark: React.ReactNode, label: string) => (
+    <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: space(1.5) }}>
+      {mark}
+      <T variant="small" style={{ fontWeight: '500' }}>
+        {label}
+      </T>
+    </View>
+  );
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(3), alignItems: 'center' }}>
-      {items.map(({ label, day }) => {
-        const look = cellLook(day, theme);
-        return (
-          <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: space(1) }}>
-            <View
-              style={{
-                width: 12,
-                height: 12,
-                backgroundColor: look.backgroundColor,
-                borderWidth: 1,
-                borderColor: look.borderColor,
-                borderStyle: look.borderStyle,
-              }}
-            />
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>{label}</Text>
-          </View>
-        );
-      })}
-      <Text style={{ color: theme.textMuted, fontSize: 12, letterSpacing: tracking.label }}>R 러닝 · W 웨이트 · + 추가</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: space(4), rowGap: space(2), alignItems: 'center' }}>
+      {item('run', <KindDot kind="run" />, '러닝')}
+      {item('weight', <KindDot kind="weight" />, '웨이트')}
+      {item('other', <KindDot kind="other" />, '기타')}
+      {item(
+        'level',
+        <View style={{ flexDirection: 'row', gap: 2 }}>
+          {[1, 2, 3, 4].map((l) => (
+            <View key={l} style={{ width: 8, height: 14, borderRadius: 2, backgroundColor: alpha(theme.text, (LEVEL_ALPHA[l] ?? 1) * 0.8) }} />
+          ))}
+        </View>,
+        '진할수록 계획을 채움',
+      )}
+      {item('missed', swatch({ backgroundColor: theme.surface, borderColor: theme.fieldBorder, borderStyle: 'dashed' }), '못 한 날')}
     </View>
   );
 };

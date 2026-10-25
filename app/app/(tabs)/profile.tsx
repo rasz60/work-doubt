@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 
-import { Button, Divider, Field, Heading, Message, Screen } from '@/components/ui';
+import { Button, Card, Field, Heading, Message, Page, Screen, SectionTitle, T } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { Devices } from '@/features/profile/Devices';
 import { useAuth } from '@/hooks/useAuth';
-import { space, tracking, useTheme } from '@/theme';
+import { radius, space, useTheme } from '@/theme';
 import type { Group, GroupMember } from '@/types';
 
 // 프로필 + 그룹(계정 간 데이터 공유) 관리.
@@ -53,106 +53,99 @@ const Profile = () => {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={{ gap: space(4), paddingBottom: space(6), width: '100%', maxWidth: 720, alignSelf: 'center' }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Heading eyebrow="Profile" title={user?.display_name || '프로필'} caption={user?.email || ''} />
+      <Page>
+        <Heading title={user?.display_name || '내 정보'} caption={user?.email || ''} />
 
-        <Field label="표시 이름" value={displayName} onChangeText={setDisplayName} />
-        <Button
-          title="프로필 저장"
-          onPress={() =>
-            void run(async () => {
-              await api.updateProfile({ display_name: displayName });
-              await refreshUser();
-              return '프로필을 저장했습니다.';
-            })
-          }
-        />
+        <Card>
+          <SectionTitle title="프로필" />
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space(2) }}>
+            <Field label="표시 이름" value={displayName} onChangeText={setDisplayName} style={{ flex: 1 }} />
+            <View style={{ width: 88 }}>
+              <Button
+                title="저장"
+                variant="secondary"
+                onPress={() =>
+                  void run(async () => {
+                    await api.updateProfile({ display_name: displayName });
+                    await refreshUser();
+                    return '프로필을 저장했어요.';
+                  })
+                }
+              />
+            </View>
+          </View>
+        </Card>
 
-        <View style={{ height: space(4) }} />
         <Devices />
 
-        <View style={{ height: space(4) }} />
-        <Divider strong />
+        <Card>
+          <SectionTitle title="그룹" caption="같은 그룹 사람끼리 서로의 지표 차트를 볼 수 있어요 (공유를 끈 사람은 빼고)." />
 
-        <View style={{ gap: space(1.5) }}>
-          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: tracking.wide }}>
-            GROUPS
-          </Text>
-          <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 18 }}>
-            같은 그룹의 구성원은 서로의 지표 차트를 볼 수 있습니다(공유를 끈 구성원은 제외).
-          </Text>
-        </View>
-
-        {groups.map((group) => (
-          <View
-            key={group.id}
-            style={{
-              borderBottomWidth: 1,
-              borderBottomColor: theme.border,
-              paddingBottom: space(4),
-              gap: space(1.5),
-            }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{group.name}</Text>
-              <Text
-                style={{ color: theme.text, fontSize: 12, fontWeight: '700', letterSpacing: tracking.label }}
-              >
-                {group.invite_code}
-              </Text>
+          {groups.map((group) => (
+            <View key={group.id} style={{ gap: space(1), paddingVertical: space(3), borderTopWidth: 1, borderTopColor: theme.line }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space(2) }}>
+                <T variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>
+                  {group.name}
+                </T>
+                <View style={{ backgroundColor: theme.field, borderRadius: radius.box, paddingHorizontal: space(2), paddingVertical: 2 }}>
+                  <T variant="numSm" selectable>
+                    {group.invite_code}
+                  </T>
+                </View>
+              </View>
+              <T variant="caption">
+                {(members[group.id] ?? []).map((m) => `${m.display_name}${m.share_data ? '' : ' (비공개)'}`).join(', ')}
+              </T>
             </View>
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-              {(members[group.id] ?? [])
-                .map((m) => `${m.display_name}${m.share_data ? '' : ' (비공개)'}`)
-                .join(', ')}
-            </Text>
+          ))}
+
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space(2) }}>
+            <Field label="새 그룹 만들기" value={groupName} onChangeText={setGroupName} placeholder="그룹 이름" style={{ flex: 1 }} />
+            <View style={{ width: 88 }}>
+              <Button
+                title="만들기"
+                variant="secondary"
+                disabled={!groupName.trim()}
+                onPress={() =>
+                  void run(async () => {
+                    const created = await api.createGroup(groupName);
+                    setGroupName('');
+                    return `그룹을 만들었어요. 초대 코드 ${created.invite_code}`;
+                  })
+                }
+              />
+            </View>
           </View>
-        ))}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space(2) }}>
+            <Field label="초대 코드로 참여" value={inviteCode} onChangeText={setInviteCode} placeholder="코드" style={{ flex: 1 }} />
+            <View style={{ width: 88 }}>
+              <Button
+                title="참여"
+                variant="secondary"
+                disabled={!inviteCode.trim()}
+                onPress={() =>
+                  void run(async () => {
+                    await api.joinGroup(inviteCode);
+                    setInviteCode('');
+                    return '그룹에 참여했어요.';
+                  })
+                }
+              />
+            </View>
+          </View>
 
-        <Field label="새 그룹 이름" value={groupName} onChangeText={setGroupName} />
-        <Button
-          title="그룹 만들기"
-          variant="ghost"
-          onPress={() =>
-            void run(async () => {
-              const created = await api.createGroup(groupName);
-              setGroupName('');
-              return `그룹을 만들었습니다. 초대 코드 ${created.invite_code}`;
-            })
-          }
-        />
-
-        <Field label="초대 코드" value={inviteCode} onChangeText={setInviteCode} />
-        <Button
-          title="그룹 참여"
-          variant="ghost"
-          onPress={() =>
-            void run(async () => {
-              await api.joinGroup(inviteCode);
-              setInviteCode('');
-              return '그룹에 참여했습니다.';
-            })
-          }
-        />
-
-        <Message text={error} tone="error" />
-        <Message text={notice} />
-
-        <View style={{ height: space(4) }} />
-        <Divider />
+          <Message text={error} tone="error" />
+          <Message text={notice} tone="ok" />
+        </Card>
 
         <Button
           title="로그아웃"
-          variant="ghost"
+          variant="secondary"
           onPress={() => {
             void signOut().then(() => router.replace('/login'));
           }}
         />
-      </ScrollView>
+      </Page>
     </Screen>
   );
 };
