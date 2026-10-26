@@ -13,6 +13,7 @@ https://ae2p.duckdns.org/api/workout/*  → 127.0.0.1:8091                 (pm2:
 1. **SQL Editor** 에서 마이그레이션을 번호 순서대로 한 번씩 실행
    - [0001_workout_schema.sql](../backend/migrations/0001_workout_schema.sql) — 프로필 · 그룹 · 신체 지표 · AI 코치
    - [0002_activity.sql](../backend/migrations/0002_activity.sql) — 운동 계획 · 수행 기록 · 기기 연동 (**0002 를 실행하기 전에 새 백엔드를 배포하면 HOME · RECORD 가 오류를 낸다**)
+   - [0003_apple_health.sql](../backend/migrations/0003_apple_health.sql) — iPhone 앱의 Apple 건강 연동 (iPhone 앱은 [APP.md](APP.md))
    - `workout` 스키마만 만든다. 업무일지(`public`)는 건드리지 않는다
    - **Settings → API → Exposed schemas 에 `workout` 을 넣지 않는다** (브라우저 REST 노출 금지)
 2. **Connect → Session pooler** 연결 문자열을 복사해 둔다 (DB 비밀번호를 모르면 Settings → Database 에서 재설정)

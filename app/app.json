@@ -8,12 +8,19 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.devsixt.workout"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.devsixt.workout",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.devsixt.workout",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0e1218"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -23,11 +30,20 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Apple Watch · 건강 앱에 기록된 운동(종류 · 시간 · 거리 · 칼로리 · 심박)을 읽어 운동 기록에 자동으로 남깁니다.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ]
     ],
     "experiments": {
       "baseUrl": "/workout",
       "typedRoutes": false
-    }
+    },
+    "icon": "./assets/icon.png"
   }
 }

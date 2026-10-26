@@ -7,6 +7,7 @@ import type {
   ChatMessage,
   CreatedDevice,
   ImportResult,
+  IngestWorkout,
   Goal,
   Group,
   GroupMember,
@@ -152,6 +153,10 @@ export const runSync = (force = false): Promise<SyncOverview> =>
 
 export const fetchStravaAuthorizeURL = (): Promise<{ url: string }> =>
   request<{ url: string }>('/api/v1/sync/strava/authorize');
+
+/** iPhone 앱이 Apple 건강에서 읽은 운동을 보낸다. 연결이 없으면 서버가 만든다 (빈 목록이면 연결만) */
+export const sendAppleHealth = (workouts: IngestWorkout[]): Promise<ImportResult> =>
+  request<ImportResult>('/api/v1/sync/apple-health', { method: 'POST', body: { workouts } });
 
 export const createDevice = (name: string): Promise<CreatedDevice> =>
   request<CreatedDevice>('/api/v1/sync/devices', { method: 'POST', body: { name } });

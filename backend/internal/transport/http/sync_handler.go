@@ -182,6 +182,31 @@ func (h *SyncHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 		writeError(w, fmt.Errorf("JSON 형식이 올바르지 않습니다: %w", domain.ErrInvalidInput))
 		return
 	}
+	result, err := h.sync.Ingest(r.Context(), token, req.toWorkouts())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+// AppleHealth 는 POST /api/v1/sync/apple-health — iPhone 앱이 HealthKit 에서 읽은 운동을 보낸다 (형식은 ingest 와 같다).
+func (h *SyncHandler) AppleHealth(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var req ingestRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, fmt.Errorf("JSON 형식이 올바르지 않습니다: %w", domain.ErrInvalidInput))
+		return
+	}
+	result, err := h.sync.AppleHealth(r.Context(), userID(r), req.toWorkouts())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (req ingestRequest) toWorkouts() []usecase.IngestWorkout {
 	items := req.Workouts
 	if len(items) == 0 && (req.Date != "" || req.Start != "") {
 		items = []ingestItem{req.ingestItem}
@@ -203,13 +228,7 @@ func (h *SyncHandler) Ingest(w http.ResponseWriter, r *http.Request) {
 			AvgHeartRate: it.AvgHeartRate.v,
 		})
 	}
-
-	result, err := h.sync.Ingest(r.Context(), token, workouts)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
+	return workouts
 }
 
 var leadingNumber = regexp.MustCompile(`^-?\d+(?:[.,]\d+)?`)

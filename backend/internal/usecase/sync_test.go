@@ -265,6 +265,48 @@ func TestIngest(t *testing.T) {
 	}
 }
 
+func TestAppleHealth(t *testing.T) {
+	s, conns, sessions := newTestSync(nil)
+	ctx := context.Background()
+
+	// 처음 연결: 최근 운동이 없어도 연결은 생기고 오류가 남지 않는다
+	if _, err := s.AppleHealth(ctx, testUser, nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(conns.byID) != 1 {
+		t.Fatalf("connections = %d, want 1", len(conns.byID))
+	}
+
+	workouts := []IngestWorkout{
+		{ID: "hk-1", Date: "2026-10-21", Start: "2026-10-21T07:10:00+09:00", Type: "running", DistanceM: f64(5230), DurationSec: f64(1710)},
+		{ID: "hk-2", Date: "2026-10-20", Type: "strength", DurationSec: f64(2700)},
+	}
+	result, err := s.AppleHealth(ctx, testUser, workouts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Saved != 2 {
+		t.Fatalf("result = %+v", result)
+	}
+	// 다시 보내도 연결 · 기록이 늘지 않는다
+	if _, err := s.AppleHealth(ctx, testUser, workouts); err != nil {
+		t.Fatal(err)
+	}
+	if len(conns.byID) != 1 || len(sessions.external()) != 2 {
+		t.Fatalf("connections = %d, records = %d", len(conns.byID), len(sessions.external()))
+	}
+	for _, c := range conns.byID {
+		if c.Provider != domain.ProviderAppleHealth || c.LastError != "" || c.LastSyncedAt == nil {
+			t.Errorf("connection = %+v", c)
+		}
+	}
+	for _, v := range sessions.external() {
+		if v.Source != domain.SourceAppleHealth {
+			t.Errorf("source = %q", v.Source)
+		}
+	}
+}
+
 func TestStravaConnectAndSync(t *testing.T) {
 	strava := &fakeStrava{activities: []domain.ExternalActivity{
 		{ExternalID: "1001", Title: "Morning Run", Kind: domain.KindRun, PerformedOn: "2026-10-20", DistanceKm: f64(5.01), DurationSec: iptr(1560)},

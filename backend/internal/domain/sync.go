@@ -10,6 +10,8 @@ type SyncProvider string
 const (
 	ProviderStrava SyncProvider = "strava"
 	ProviderDevice SyncProvider = "device"
+	// ProviderAppleHealth 는 iPhone 앱이 HealthKit 에서 읽어 보내는 연결이다. 사용자마다 하나
+	ProviderAppleHealth SyncProvider = "apple_health"
 )
 
 // SyncConnection 은 PROFILE 의 "연결된 기기" 한 줄이다. 토큰은 응답에 싣지 않는다.

@@ -25,3 +25,7 @@ yarn-error.log*
 .vscode/*
 !.vscode/settings.json
 .DS_Store
+
+# Expo 네이티브 프로젝트 (EAS 가 빌드할 때 app.json 으로 만든다. prebuild 로 만든 것은 올리지 않는다)
+/app/ios/
+/app/android/

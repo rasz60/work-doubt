@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, Platform, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 
 import { Button, Card, DateStepper, Field, Message, SectionTitle, Segmented, T, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
+import { appleHealthSupported, connectAppleHealth, syncAppleHealth } from '@/features/health/appleHealth';
 import { addDays, formatAgo, isDateString, todayString } from '@/lib/date';
 import { radius, space, useTheme } from '@/theme';
 import type { CreatedDevice, ImportResult, SyncConnection, SyncOverview } from '@/types';
@@ -15,10 +17,8 @@ const STRAVA_RESULTS: Record<string, { text: string; error: boolean }> = {
 };
 
 const copy = async (text: string): Promise<boolean> => {
-  if (Platform.OS !== 'web' || !navigator.clipboard) return false;
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
+    return await Clipboard.setStringAsync(text);
   } catch {
     return false;
   }
@@ -133,6 +133,75 @@ const StravaCard = ({ conn, onChanged, onDisconnect, confirming }: StravaCardPro
   );
 };
 
+interface AppleHealthCardProps {
+  conn?: SyncConnection;
+  onChanged: () => Promise<void>;
+  onDisconnect: (conn: SyncConnection) => void;
+  confirming: boolean;
+}
+
+// Apple 건강: iPhone 앱이 HealthKit 에서 운동을 읽어 보낸다. 웹 · Android 에서는 연결 상태만 보인다.
+const AppleHealthCard = ({ conn, onChanged, onDisconnect, confirming }: AppleHealthCardProps) => {
+  const theme = useTheme();
+  const [busy, setBusy] = useState<boolean>(false);
+  const [result, setResult] = useState<string>('');
+  const [error, setError] = useState<string>('');
+
+  const run = async (action: () => Promise<ImportResult | null>): Promise<void> => {
+    setError('');
+    setResult('');
+    setBusy(true);
+    try {
+      const r = await action();
+      if (r) setResult(r.fetched === 0 ? '가져올 운동이 없어요. 건강 앱 › 공유 › 앱에서 운동 읽기를 허용했는지 확인하세요.' : describeResult(r));
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Apple 건강에서 가져오지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!conn) {
+    if (!appleHealthSupported) return null;
+    return (
+      <View style={{ gap: space(2) }}>
+        <Button title={busy ? '가져오는 중…' : 'Apple 건강 연결'} onPress={() => void run(connectAppleHealth)} disabled={busy} />
+        <T variant="caption">Apple Watch · 건강 앱에 남은 운동을 가져와요. 권한을 허용하면 최근 90일 운동을 바로 가져와요.</T>
+        <Message text={error} tone="error" />
+        <Message text={result} tone="ok" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: space(4), borderWidth: 1, borderColor: theme.line, borderRadius: radius.tile, padding: space(3) }}>
+      <Status conn={conn} />
+      <T variant="caption">
+        {appleHealthSupported
+          ? '새 운동은 이 iPhone 앱에서 홈을 열 때 자동으로 가져와요 (10분마다). 이미 있는 운동은 건너뛰어요.'
+          : 'Apple 건강은 iPhone 앱이 보내 줘요. 새 운동을 가져오려면 iPhone 에서 앱을 여세요.'}
+      </T>
+      {appleHealthSupported ? (
+        <View style={{ gap: space(2) }}>
+          <Button title={busy ? '가져오는 중…' : '지금 가져오기'} variant="secondary" onPress={() => void run(() => syncAppleHealth(conn.last_synced_at))} disabled={busy} />
+          <TextButton title="최근 90일 다시 보내기" tone="muted" onPress={() => void run(() => syncAppleHealth())} disabled={busy} />
+        </View>
+      ) : null}
+      <Message text={error} tone="error" />
+      <Message text={result} tone="ok" />
+      <TextButton
+        title={confirming ? '정말 끊을까요? (받은 기록은 남아요)' : '연결 끊기'}
+        tone={confirming ? 'danger' : 'muted'}
+        onPress={() => onDisconnect(conn)}
+      />
+      {confirming && appleHealthSupported ? (
+        <T variant="caption">끊은 뒤에도 앱의 건강 읽기 권한은 남아 있어요. 설정 › 건강 › 데이터 접근 및 기기에서 끌 수 있어요.</T>
+      ) : null}
+    </View>
+  );
+};
+
 // 내 정보 › 연결된 기기: Strava 를 연결해 두고 하루 · 기간 · 전체를 골라 운동 기록을 가져온다.
 export const Devices = () => {
   const theme = useTheme();
@@ -214,14 +283,21 @@ export const Devices = () => {
   const connections = overview?.connections ?? [];
   const stravaConns = connections.filter((c) => c.provider === 'strava');
   const deviceConns = connections.filter((c) => c.provider === 'device');
+  const appleConn = connections.find((c) => c.provider === 'apple_health');
   const mono = Platform.OS === 'web' ? 'ui-monospace, Menlo, Consolas, monospace' : undefined;
 
   return (
     <Card style={{ gap: space(4) }}>
       <SectionTitle
         title="연결된 기기"
-        caption="Strava 를 연결하면 날짜를 골라 운동 기록을 가져올 수 있어요. Garmin · 갤럭시워치 · Apple Watch 는 각 앱에서 Strava 자동 업로드를 켜 두면 돼요."
+        caption={
+          appleHealthSupported
+            ? 'Apple Watch 운동은 Apple 건강을 연결하면 바로 들어와요. Garmin · 갤럭시워치는 각 앱에서 Strava 자동 업로드를 켜 두고 Strava 를 연결하세요.'
+            : 'Strava 를 연결하면 날짜를 골라 운동 기록을 가져올 수 있어요. Apple Watch 는 iPhone 앱에서 Apple 건강을 연결하면 돼요.'
+        }
       />
+
+      <AppleHealthCard conn={appleConn} onChanged={load} onDisconnect={disconnect} confirming={confirm === appleConn?.id} />
 
       {stravaConns.map((conn) => (
         <StravaCard key={conn.id} conn={conn} onChanged={load} onDisconnect={disconnect} confirming={confirm === conn.id} />

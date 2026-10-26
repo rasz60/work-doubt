@@ -29,12 +29,14 @@ const (
 	maxIngestErrors    = 5
 	maxDeviceConns     = 10
 	deviceTokenPrefix  = "wkd_"
+	appleHealthAccount = "apple_health" // Apple 건강 연결은 사용자마다 하나라 계정 id 를 고정한다
 	tokenRefreshMargin = 2 * time.Minute
 )
 
 // Sync 는 기기 · 앱 연동을 다룬다.
 //   - Strava(OAuth): 서버가 활동을 가져온다. Garmin · Samsung Health · Apple Watch 운동 앱 등이 Strava 로 올린다
 //   - 기기 토큰: 폰 자동화(iOS 단축어 등)가 토큰을 붙여 운동 기록을 보낸다
+//   - Apple 건강: iPhone 앱이 HealthKit 에서 운동을 읽어 로그인 토큰으로 보낸다
 type Sync struct {
 	conns    domain.SyncConnectionRepository
 	sessions domain.SessionRepository
@@ -160,7 +162,7 @@ func (s *Sync) Import(ctx context.Context, userID, connID, from, to string) (*Im
 		return nil, err
 	}
 	if conn.Provider != domain.ProviderStrava {
-		return nil, invalid("기기 토큰 연결은 폰이 보내 주는 방식이라 서버에서 가져올 수 없습니다")
+		return nil, invalid("이 연결은 폰이 보내 주는 방식이라 서버에서 가져올 수 없습니다")
 	}
 	if s.strava == nil {
 		return nil, invalid("서버에 Strava 연동이 설정되지 않았습니다")
@@ -340,6 +342,27 @@ func (s *Sync) Ingest(ctx context.Context, token string, workouts []IngestWorkou
 	if len(workouts) == 0 {
 		return nil, invalid("보낸 운동 기록이 없습니다 (workouts)")
 	}
+	return s.receive(ctx, conn, domain.SourceDevice, workouts)
+}
+
+// AppleHealth 는 iPhone 앱이 HealthKit 에서 읽은 운동을 저장한다. 연결이 없으면 만든다.
+// 처음 연결할 때는 최근 운동이 없을 수도 있어 빈 목록도 받는다 (연결만 만든다).
+func (s *Sync) AppleHealth(ctx context.Context, userID string, workouts []IngestWorkout) (*IngestResult, error) {
+	conn := &domain.SyncConnection{
+		ID:                uuid.NewString(),
+		UserID:            userID,
+		Provider:          domain.ProviderAppleHealth,
+		Name:              "Apple 건강",
+		ExternalAccountID: appleHealthAccount,
+	}
+	if err := s.conns.SaveOAuth(ctx, conn); err != nil {
+		return nil, err
+	}
+	return s.receive(ctx, conn, domain.SourceAppleHealth, workouts)
+}
+
+// receive 는 폰이 보낸 운동 기록을 저장하고 결과를 연결에 남긴다. 이미 있는 기록은 건너뛴다.
+func (s *Sync) receive(ctx context.Context, conn *domain.SyncConnection, source domain.SessionSource, workouts []IngestWorkout) (*IngestResult, error) {
 	if len(workouts) > maxIngestWorkouts {
 		return nil, invalid("한 번에 %d개까지 보낼 수 있습니다", maxIngestWorkouts)
 	}
@@ -355,7 +378,7 @@ func (s *Sync) Ingest(ctx context.Context, token string, workouts []IngestWorkou
 		activities = append(activities, act)
 	}
 
-	result, err := s.importActivities(ctx, conn, domain.SourceDevice, activities)
+	result, err := s.importActivities(ctx, conn, source, activities)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +390,7 @@ func (s *Sync) Ingest(ctx context.Context, token string, workouts []IngestWorkou
 	}
 
 	syncErr := ""
-	if result.Saved == 0 && result.Duplicates == 0 {
+	if len(workouts) > 0 && result.Saved == 0 && result.Duplicates == 0 {
 		syncErr = "받은 기록을 하나도 저장하지 못했습니다"
 	}
 	if err := s.conns.MarkSynced(ctx, conn.ID, s.clock.Now(), syncErr); err != nil {

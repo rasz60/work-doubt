@@ -124,7 +124,7 @@ export interface SessionSet {
   reps: number;
 }
 
-export type SessionSource = 'manual' | 'strava' | 'device';
+export type SessionSource = 'manual' | 'strava' | 'device' | 'apple_health';
 
 export interface Session {
   id: string;
@@ -209,7 +209,7 @@ export interface ActivitySummary {
 
 // ── 기기 · 앱 연동 ───────────────────────────────
 
-export type SyncProvider = 'strava' | 'device';
+export type SyncProvider = 'strava' | 'device' | 'apple_health';
 
 export interface SyncConnection {
   id: string;
@@ -235,6 +235,19 @@ export interface ImportResult {
   duplicates: number;
   skipped: number;
   errors?: string[];
+}
+
+/** 폰이 보낸 운동 기록 하나 (기기 토큰 ingest · Apple 건강 공통 형식) */
+export interface IngestWorkout {
+  id: string;
+  date: string;
+  start?: string;
+  type: string;
+  title?: string;
+  distance_m?: number;
+  duration_sec?: number;
+  calories_kcal?: number;
+  avg_heart_rate?: number;
 }
 
 export interface CreatedDevice {
@@ -263,6 +276,7 @@ export const SOURCE_LABELS: Record<SessionSource, string> = {
   manual: '직접',
   strava: 'Strava',
   device: '기기',
+  apple_health: 'Apple 건강',
 };
 
 export const METRIC_LABELS: Record<MetricKind, string> = {

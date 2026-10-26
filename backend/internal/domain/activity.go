@@ -61,9 +61,10 @@ type PlanRepository interface {
 type SessionSource string
 
 const (
-	SourceManual SessionSource = "manual"
-	SourceStrava SessionSource = "strava"
-	SourceDevice SessionSource = "device"
+	SourceManual      SessionSource = "manual"
+	SourceStrava      SessionSource = "strava"
+	SourceDevice      SessionSource = "device"
+	SourceAppleHealth SessionSource = "apple_health"
 )
 
 // SessionSet 은 웨이트 세트 하나다.
