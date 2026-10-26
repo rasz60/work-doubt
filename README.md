@@ -30,7 +30,8 @@ https://ae2p.duckdns.org/api/workout/*  Caddy ─── 127.0.0.1:8091     Go AP
 | Auth | Supabase Auth (ae:p 포털). 백엔드는 JWKS 로 JWT 검증 (`internal/platform/auth/supabase.go`) |
 | DB | 공용 Supabase Postgres `workout` 스키마 ([backend/migrations](backend/migrations)) |
 | AI | Anthropic Go SDK — 지표를 프롬프트에 넣어 SSE 로 스트리밍 |
-| 연동 | Strava API(OAuth, 서버가 가져옴) · 기기 토큰(폰 자동화가 보냄) |
+| 연동 | Strava API(OAuth, 서버가 가져옴) · Apple 건강(iPhone 앱이 HealthKit 에서 읽어 보냄) · 기기 토큰(폰 자동화가 보냄) |
+| iPhone 앱 | EAS Build · TestFlight ([docs/APP.md](docs/APP.md)) |
 
 ## 디렉터리
 
@@ -45,10 +46,10 @@ work-doubt/
 │  │  ├─ platform/               # auth (Supabase JWT 검증), ai (Claude), strava
 │  │  ├─ transport/http/         # 라우터 · 핸들러 · 미들웨어
 │  │  └─ config/
-│  └─ migrations/                # 0001 기본 스키마 · 0002 운동 계획 · 수행 기록 · 연동
+│  └─ migrations/                # 0001 기본 스키마 · 0002 운동 계획 · 수행 기록 · 연동 · 0003 Apple 건강
 ├─ app/                          # Expo 클라이언트
 │  ├─ public/index.html          # 웹 템플릿: 포털 로딩 화면 + 앱 전환 버튼
-│  ├─ app/                       # 화면 (login · (tabs)/ HOME · RECORD · COACH · PROFILE)
+│  ├─ app/                       # 화면 (login · (tabs)/ HOME · RECORD · COACH · PROFILE · stats/ 홈에서 들어가는 러닝 · 웨이트 · 종목 · 칼로리)
 │  ├─ src/features/              # calendar(잔디 · 캘린더), record(계획 · 수행 기록 · 신체), profile(연결된 기기)
 │  └─ src/api/supabase.ts        # 세션 (포털과 공유)
 ├─ scripts/deploy.sh             # 서버 배포: Actions 가 빌드한 묶음을 받아 바꿔 끼운다 (서버에서는 빌드하지 않음)
@@ -79,6 +80,7 @@ docker run -d --name workout-pg -e POSTGRES_PASSWORD=pw -p 55432:5432 postgres:1
 docker exec -i workout-pg psql -U postgres -c "CREATE SCHEMA auth; CREATE TABLE auth.users (id uuid PRIMARY KEY); CREATE ROLE anon; CREATE ROLE authenticated;"
 docker exec -i workout-pg psql -U postgres < backend/migrations/0001_workout_schema.sql
 docker exec -i workout-pg psql -U postgres < backend/migrations/0002_activity.sql
+docker exec -i workout-pg psql -U postgres < backend/migrations/0003_apple_health.sql
 cd backend && TEST_DATABASE_URL='postgres://postgres:pw@localhost:55432/postgres?sslmode=disable' go test -tags integration ./internal/repository/postgres/
 ```
 
@@ -110,6 +112,7 @@ cd backend && TEST_DATABASE_URL='postgres://postgres:pw@localhost:55432/postgres
 | GET | `/api/v1/sync` | 연결된 기기 · Strava 사용 가능 여부 · 기기 전송 주소 |
 | POST | `/api/v1/sync/run` | Strava 동기화 (`force` 가 아니면 10분에 한 번) |
 | GET | `/api/v1/sync/strava/authorize` | Strava 동의 화면 주소 |
+| POST | `/api/v1/sync/apple-health` | iPhone 앱이 HealthKit 운동을 보냄 (형식은 ingest 와 같다). 연결이 없으면 만들고, 빈 목록이면 연결만 |
 | POST | `/api/v1/sync/devices` | 기기 토큰 만들기 (토큰은 이때 한 번만 보인다) |
 | POST | `/api/v1/sync/connections/{id}/import` | Strava 활동 가져오기 `{from, to}` — 날짜(from=to) · 기간 · 전체(둘 다 비움). 이미 있는 기록은 건너뜀 |
 | DELETE | `/api/v1/sync/connections/{id}` | 연결 끊기 (받은 기록은 남는다) |
