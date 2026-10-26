@@ -1,5 +1,9 @@
 # iPhone 앱 배포 가이드 (EAS)
 
+> **지금은 ae:p 앱을 쓴다.** 포털 저장소의 [`mobile/`](https://github.com/rasz60/ae2p/tree/main/mobile) 이 포털과 모든 앱을 앱 하나로 열고,
+> 그 안의 운동기록 웹이 `window.aepNative` 로 같은 Apple 건강 연동을 한다 ([appleHealth.ts](../app/src/features/health/appleHealth.ts)).
+> 아래의 운동기록 단독 앱(`com.devsixt.workout`)은 따로 앱이 필요할 때만 만든다.
+
 웹(`/workout`)과 같은 코드로 iPhone 앱을 만든다. 앱에서만 되는 것은 **Apple 건강 연동**이다
 (Apple Watch · 건강 앱에 남은 운동을 HealthKit 에서 읽어 `POST /api/v1/sync/apple-health` 로 보낸다).
 빌드는 Expo 클라우드(EAS)가 하므로 Mac 이 없어도 Windows 에서 할 수 있다.

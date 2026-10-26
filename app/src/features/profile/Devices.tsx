@@ -140,7 +140,7 @@ interface AppleHealthCardProps {
   confirming: boolean;
 }
 
-// Apple 건강: iPhone 앱이 HealthKit 에서 운동을 읽어 보낸다. 웹 · Android 에서는 연결 상태만 보인다.
+// Apple 건강: iPhone 앱(운동기록 앱 · ae:p 앱 안의 웹)이 HealthKit 에서 운동을 읽어 보낸다. 그 밖에서는 연결 상태만 보인다.
 const AppleHealthCard = ({ conn, onChanged, onDisconnect, confirming }: AppleHealthCardProps) => {
   const theme = useTheme();
   const [busy, setBusy] = useState<boolean>(false);
@@ -179,8 +179,8 @@ const AppleHealthCard = ({ conn, onChanged, onDisconnect, confirming }: AppleHea
       <Status conn={conn} />
       <T variant="caption">
         {appleHealthSupported
-          ? '새 운동은 이 iPhone 앱에서 홈을 열 때 자동으로 가져와요 (10분마다). 이미 있는 운동은 건너뛰어요.'
-          : 'Apple 건강은 iPhone 앱이 보내 줘요. 새 운동을 가져오려면 iPhone 에서 앱을 여세요.'}
+          ? '새 운동은 이 앱에서 홈을 열 때 자동으로 가져와요 (10분마다). 이미 있는 운동은 건너뛰어요.'
+          : 'Apple 건강은 iPhone 의 ae:p 앱이 보내 줘요. 새 운동을 가져오려면 iPhone 에서 ae:p 를 여세요.'}
       </T>
       {appleHealthSupported ? (
         <View style={{ gap: space(2) }}>
@@ -293,7 +293,7 @@ export const Devices = () => {
         caption={
           appleHealthSupported
             ? 'Apple Watch 운동은 Apple 건강을 연결하면 바로 들어와요. Garmin · 갤럭시워치는 각 앱에서 Strava 자동 업로드를 켜 두고 Strava 를 연결하세요.'
-            : 'Strava 를 연결하면 날짜를 골라 운동 기록을 가져올 수 있어요. Apple Watch 는 iPhone 앱에서 Apple 건강을 연결하면 돼요.'
+            : 'Strava 를 연결하면 날짜를 골라 운동 기록을 가져올 수 있어요. Apple Watch 는 iPhone 의 ae:p 앱에서 Apple 건강을 연결하면 돼요.'
         }
       />
 

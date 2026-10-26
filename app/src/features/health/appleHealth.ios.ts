@@ -6,17 +6,13 @@ import {
   type WorkoutProxyTyped,
 } from '@kingstinct/react-native-healthkit';
 
-import * as api from '@/api/endpoints';
 import { toDateString } from '@/lib/date';
 import type { ImportResult, IngestWorkout } from '@/types';
 
+import { FIRST_LOOKBACK, sendWorkouts, syncStart } from './send';
+
 // iPhone 앱: Apple 건강(HealthKit)에서 운동을 읽어 서버(/sync/apple-health)로 보낸다.
 // Apple Watch · 건강 앱 · 다른 운동 앱이 건강에 남긴 운동이 모두 들어온다. 이미 있는 기록은 서버가 건너뛴다.
-
-const DAY = 24 * 60 * 60 * 1000;
-const FIRST_LOOKBACK = 90 * DAY;
-const RESYNC_OVERLAP = 3 * DAY; // 늦게 들어온 운동(워치 동기화 지연)도 다시 보낸다
-const BATCH = 200; // 서버가 한 번에 받는 최대 개수
 
 const HEART_RATE = 'HKQuantityTypeIdentifierHeartRate';
 
@@ -72,24 +68,9 @@ const toIngest = async (w: WorkoutProxyTyped): Promise<IngestWorkout> => {
   };
 };
 
-const merge = (a: ImportResult, b: ImportResult): ImportResult => ({
-  fetched: a.fetched + b.fetched,
-  saved: a.saved + b.saved,
-  duplicates: a.duplicates + b.duplicates,
-  skipped: a.skipped + b.skipped,
-  errors: [...(a.errors ?? []), ...(b.errors ?? [])].slice(0, 5),
-});
-
 const sendSince = async (since: Date): Promise<ImportResult> => {
   const samples = await queryWorkoutSamples({ limit: 0, ascending: true, filter: { date: { startDate: since } } });
-  const workouts = await Promise.all(samples.map(toIngest));
-
-  // 운동이 없어도 한 번은 보낸다: 서버가 연결을 만들고 마지막 동기화 시각을 남긴다
-  let result = await api.sendAppleHealth(workouts.slice(0, BATCH));
-  for (let i = BATCH; i < workouts.length; i += BATCH) {
-    result = merge(result, await api.sendAppleHealth(workouts.slice(i, i + BATCH)));
-  }
-  return result;
+  return sendWorkouts(await Promise.all(samples.map(toIngest)));
 };
 
 export const connectAppleHealth = async (): Promise<ImportResult> => {
@@ -101,6 +82,5 @@ export const connectAppleHealth = async (): Promise<ImportResult> => {
 
 export const syncAppleHealth = async (lastSyncedAt?: string): Promise<ImportResult | null> => {
   if (!appleHealthSupported) return null;
-  const since = lastSyncedAt ? new Date(new Date(lastSyncedAt).getTime() - RESYNC_OVERLAP) : new Date(Date.now() - FIRST_LOOKBACK);
-  return sendSince(since);
+  return sendSince(syncStart(lastSyncedAt));
 };
