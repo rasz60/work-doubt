@@ -5,7 +5,6 @@ import type {
   CalendarDay,
   Conversation,
   ChatMessage,
-  CreatedDevice,
   ImportResult,
   IngestWorkout,
   Goal,
@@ -143,27 +142,13 @@ export const fetchCalendar = (from: string, to: string): Promise<ListResponse<Ca
 export const fetchActivitySummary = (month?: string): Promise<ActivitySummary> =>
   request<ActivitySummary>('/api/v1/activity/summary', { query: { month } });
 
-// ── 기기 · 앱 연동 ───────────────────────────────────────
+// ── Apple 건강 연동 ─────────────────────────────────────
 
 export const fetchSync = (): Promise<SyncOverview> => request<SyncOverview>('/api/v1/sync');
-
-/** Strava 에서 새 활동을 가져온다. force 가 아니면 10분에 한 번만 실제로 가져온다 */
-export const runSync = (force = false): Promise<SyncOverview> =>
-  request<SyncOverview>('/api/v1/sync/run', { method: 'POST', body: { force } });
-
-export const fetchStravaAuthorizeURL = (): Promise<{ url: string }> =>
-  request<{ url: string }>('/api/v1/sync/strava/authorize');
 
 /** iPhone 앱이 Apple 건강에서 읽은 운동을 보낸다. 연결이 없으면 서버가 만든다 (빈 목록이면 연결만) */
 export const sendAppleHealth = (workouts: IngestWorkout[]): Promise<ImportResult> =>
   request<ImportResult>('/api/v1/sync/apple-health', { method: 'POST', body: { workouts } });
-
-export const createDevice = (name: string): Promise<CreatedDevice> =>
-  request<CreatedDevice>('/api/v1/sync/devices', { method: 'POST', body: { name } });
-
-/** 날짜(from = to) · 기간 · 전체(둘 다 비움)의 활동을 가져온다. 이미 있는 기록은 건너뛴다 */
-export const importConnection = (id: string, from?: string, to?: string): Promise<ImportResult> =>
-  request<ImportResult>(`/api/v1/sync/connections/${id}/import`, { method: 'POST', body: { from: from ?? '', to: to ?? '' } });
 
 export const disconnect = (id: string): Promise<void> =>
   request<void>(`/api/v1/sync/connections/${id}`, { method: 'DELETE' });

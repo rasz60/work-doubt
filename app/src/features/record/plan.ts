@@ -104,3 +104,21 @@ export const planDayFor = (plans: Plan[], date: string): PlanDay | undefined => 
   const day = plan?.days.find((d) => d.weekday === isoWeekday(date));
   return day && day.kind !== 'rest' ? day : undefined;
 };
+
+/** 요일 초안 한 줄 요약 (계획 화면 목록): 러닝 · 5km · 5:30 / 웨이트 · 3종목 12세트 / 휴식 */
+export const describeDayDraft = (d: DayDraft): string => {
+  if (d.kind === 'rest') return '휴식';
+  if (d.kind === 'run') {
+    const parts = ['러닝'];
+    if (d.distance.trim()) parts.push(`${d.distance.trim()}km`);
+    if (d.pace.trim()) parts.push(`${d.pace.trim()}/km`);
+    return parts.join(' · ');
+  }
+  const named = d.blocks.filter((b) => b.name.trim());
+  if (named.length === 0) return '웨이트 · 종목을 정해 주세요';
+  const sets = named.reduce((sum, b) => sum + b.rows.reduce((n, r) => n + (r.reps.trim() ? Math.max(1, Math.round(toNumber(r.sets) ?? 1)) : 0), 0), 0);
+  return `웨이트 · ${named.length}종목 ${sets}세트`;
+};
+
+/** 모든 요일이 휴식인 빈 계획인지 */
+export const isEmptyDraft = (draft: PlanDraft): boolean => draft.days.every((d) => d.kind === 'rest');

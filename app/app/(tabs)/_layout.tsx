@@ -9,15 +9,20 @@ import { fonts, useTheme } from '@/theme';
 
 // 탭 아이콘 (24×24, 선 2px)
 const ICONS: Record<string, React.ReactNode> = {
-  index: <Path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z" />,
-  record: (
+  index: (
     <>
-      <Path d="M6 4h12a1 1 0 0 1 1 1v15H5V5a1 1 0 0 1 1-1z" />
-      <Path d="M12 9v6M9 12h6" />
+      <Circle cx="12" cy="12" r="8" />
+      <Path d="M12 8v4l2.5 2.5" />
+    </>
+  ),
+  calendar: (
+    <>
+      <Path d="M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z" />
+      <Path d="M4 10h16M8 4v4M16 4v4" />
     </>
   ),
   coach: <Path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" />,
-  profile: (
+  me: (
     <>
       <Circle cx="12" cy="8.5" r="3.5" />
       <Path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" />
@@ -38,7 +43,7 @@ const TabsLayout = () => {
   if (loading) {
     return (
       <Screen>
-        <ActivityIndicator color={theme.text} />
+        <ActivityIndicator color={theme.ink} />
       </Screen>
     );
   }
@@ -58,7 +63,7 @@ const TabsLayout = () => {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.surface,
+          backgroundColor: theme.paper,
           borderTopColor: theme.line,
           borderTopWidth: 1,
           elevation: 0,
@@ -66,15 +71,15 @@ const TabsLayout = () => {
         },
         tabBarIcon: ({ color }) => <TabIcon name={route.name} color={color} />,
         tabBarLabelStyle: { fontSize: 12, fontWeight: '700', fontFamily: fonts.sans },
-        tabBarActiveTintColor: theme.text,
-        tabBarInactiveTintColor: theme.textMuted,
-        sceneStyle: { backgroundColor: theme.bg },
+        tabBarActiveTintColor: theme.ink,
+        tabBarInactiveTintColor: theme.muted,
+        sceneStyle: { backgroundColor: theme.paper },
       })}
     >
-      <Tabs.Screen name="index" options={{ title: '홈' }} />
-      <Tabs.Screen name="record" options={{ title: '기록' }} />
+      <Tabs.Screen name="index" options={{ title: '오늘' }} />
+      <Tabs.Screen name="calendar" options={{ title: '캘린더' }} />
       <Tabs.Screen name="coach" options={{ title: '코치' }} />
-      <Tabs.Screen name="profile" options={{ title: '내 정보' }} />
+      <Tabs.Screen name="me" options={{ title: '나' }} />
     </Tabs>
   );
 };

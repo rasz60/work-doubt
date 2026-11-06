@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { Card, Message, T } from '@/components/ui';
+import { Group, Message, T } from '@/components/ui';
 import { isBodyweight, signed, useSummary } from '@/features/stats/useSummary';
 import { StatsPage } from '@/features/stats/StatsPage';
 import { formatShortDate } from '@/lib/date';
@@ -17,10 +17,10 @@ const Weight = () => {
   return (
     <StatsPage title="웨이트" caption="최근 6개월 · 종목을 누르면 변화가 보여요" loading={!summary && !error} error={error}>
       {summary && exercises.length === 0 ? (
-        <Message text="최근 6개월 웨이트 기록이 없어요. 기록 탭에서 종목 · 무게 · 횟수를 남겨 보세요." />
+        <Message text="최근 6개월 웨이트 기록이 없어요. 기록할 때 종목 · 무게 · 횟수를 남겨 보세요." />
       ) : null}
       {exercises.length > 0 ? (
-        <Card kind="weight" style={{ gap: 0, paddingVertical: space(1) }}>
+        <Group flush>
           {exercises.map((e, i) => {
             const bw = isBodyweight(e);
             return (
@@ -34,6 +34,7 @@ const Weight = () => {
                   alignItems: 'center',
                   gap: space(3),
                   paddingVertical: space(3.5),
+                  paddingHorizontal: space(5),
                   borderTopWidth: i === 0 ? 0 : 1,
                   borderTopColor: theme.line,
                   opacity: pressed ? 0.6 : 1,
@@ -52,17 +53,17 @@ const Weight = () => {
                     <T variant="numMd">{bw ? e.top_reps : e.estimated_1rm}</T>
                     <T variant="small">{bw ? '회' : 'kg'}</T>
                   </View>
-                  <T variant="small" color={e.delta_1rm > 0 ? theme.weight.ink : theme.textMuted}>
+                  <T variant="small" color={e.delta_1rm > 0 ? theme.ink : theme.muted}>
                     {e.series.length > 1 ? `${signed(e.delta_1rm)}${bw ? '회' : 'kg'}` : '첫 기록'}
                   </T>
                 </View>
-                <T variant="heading" color={theme.textMuted}>
+                <T variant="heading" color={theme.muted} style={{ fontWeight: '400' }}>
                   ›
                 </T>
               </Pressable>
             );
           })}
-        </Card>
+        </Group>
       ) : null}
       {exercises.length > 0 ? <T variant="caption">무게 종목은 추정 1RM(한 번에 들 수 있는 최대 무게), 맨몸 종목은 최대 횟수예요.</T> : null}
     </StatsPage>

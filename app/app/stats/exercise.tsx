@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 
 import { TrendChart } from '@/components/TrendChart';
-import { Card, Message, T } from '@/components/ui';
+import { Group, Message, T } from '@/components/ui';
 import { isBodyweight, signed, useSummary } from '@/features/stats/useSummary';
 import { StatsPage } from '@/features/stats/StatsPage';
 import { formatShortDate } from '@/lib/date';
@@ -32,11 +32,11 @@ const Exercise = () => {
     <StatsPage title={name ?? '종목'} back="웨이트" fallback="/stats/weight" loading={!summary && !error} error={error}>
       {summary && !e ? <Message text="이 종목의 최근 6개월 기록이 없어요." /> : null}
       {e && series ? (
-        <Card kind="weight" style={{ gap: space(4) }}>
+        <Group style={{ gap: space(4) }}>
           <View style={{ gap: 2 }}>
             <T variant="label">{bw ? '최대 횟수' : '추정 1RM'}</T>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space(1.5) }}>
-              <T variant="numXl" color={theme.weight.ink}>
+              <T variant="numHero">
                 {bw ? e.top_reps : e.estimated_1rm}
               </T>
               <T variant="label">{unit}</T>
@@ -54,13 +54,13 @@ const Exercise = () => {
           <View onLayout={(ev) => setWidth(ev.nativeEvent.layout.width)}>
             {width > 0 ? (
               e.series.length > 1 ? (
-                <TrendChart series={series} label="최근 6개월" unit={unit} width={width} color={theme.weight.solid} />
+                <TrendChart series={series} label="최근 6개월" unit={unit} width={width} />
               ) : (
                 <Message text="기록이 한 번뿐이라 아직 변화가 없어요. 다음 기록부터 그래프가 그려져요." />
               )
             ) : null}
           </View>
-        </Card>
+        </Group>
       ) : null}
     </StatsPage>
   );

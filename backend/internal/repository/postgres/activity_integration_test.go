@@ -1,6 +1,6 @@
 //go:build integration
 
-// 실제 Postgres 로 계획 · 기록 · 연동 저장소를 확인한다. 0001 · 0002 마이그레이션을 적용한 빈 DB 가 필요하다.
+// 실제 Postgres 로 계획 · 기록 · 연동 저장소를 확인한다. 0001 ~ 0004 마이그레이션을 적용한 빈 DB 가 필요하다.
 //
 //	docker run -d --name workout-pg -e POSTGRES_PASSWORD=pw -p 55432:5432 postgres:17-alpine
 //	(auth.users 를 흉내 내는 스키마 + 마이그레이션 적용 — README 참고)
@@ -111,68 +111,55 @@ func TestActivityRepositories(t *testing.T) {
 				t.Errorf("sessions = %+v", got)
 			}
 
-			// ── 연동: 기기 토큰 연결 + 같은 external_id 는 한 번만, 사용자 메모는 지키기
+			// ── 연동: Apple 건강 연결 + 같은 external_id 는 한 번만, 사용자 메모는 지키기
 			conns := NewSyncConnectionRepository(pool)
-			device := &domain.SyncConnection{ID: uuid.NewString(), UserID: user, Provider: domain.ProviderDevice, Name: "아이폰"}
-			if err := conns.CreateDevice(ctx, device, "hash-"+user); err != nil {
+			apple := &domain.SyncConnection{ID: uuid.NewString(), UserID: user, Provider: domain.ProviderAppleHealth, Name: "Apple 건강", ExternalAccountID: "apple_health"}
+			if err := conns.Save(ctx, apple); err != nil {
 				t.Fatal(err)
 			}
-			found, err := conns.FindByIngestHash(ctx, "hash-"+user)
-			if err != nil || found.ID != device.ID {
-				t.Fatalf("find by hash = %+v, %v", found, err)
+			// 다시 연결하면 같은 행을 쓴다
+			reconnect := &domain.SyncConnection{ID: uuid.NewString(), UserID: user, Provider: domain.ProviderAppleHealth, Name: "Apple 건강", ExternalAccountID: "apple_health"}
+			if err := conns.Save(ctx, reconnect); err != nil {
+				t.Fatal(err)
+			}
+			if reconnect.ID != apple.ID {
+				t.Errorf("reconnect made a new row")
 			}
 
 			synced := &domain.Session{ID: uuid.NewString(), UserID: user, PerformedOn: "2026-10-21", Kind: domain.KindRun, Title: "아침",
-				Source: domain.SourceDevice, ConnectionID: &device.ID, ExternalID: "w1", DistanceKm: f64(3), DurationSec: iptr(1000)}
+				Source: domain.SourceAppleHealth, ConnectionID: &apple.ID, ExternalID: "w1", DistanceKm: f64(3), DurationSec: iptr(1000)}
 			created, err := sessions.InsertExternal(ctx, synced)
 			if err != nil || !created {
 				t.Fatalf("first upsert created=%v err=%v", created, err)
 			}
 			syncedID := synced.ID
-			// 사용자가 메모를 붙인 뒤 기기가 같은 기록(값이 조금 다른)을 다시 보낸다 → 아무것도 바뀌지 않는다
+			// 사용자가 메모를 붙인 뒤 같은 기록(값이 조금 다른)을 다시 보낸다 → 아무것도 바뀌지 않는다
 			withMemo := *synced
 			withMemo.Memo = "가볍게"
 			if err := sessions.Update(ctx, &withMemo); err != nil {
 				t.Fatal(err)
 			}
 			resent := &domain.Session{ID: uuid.NewString(), UserID: user, PerformedOn: "2026-10-21", Kind: domain.KindRun, Title: "아침",
-				Source: domain.SourceDevice, ConnectionID: &device.ID, ExternalID: "w1", DistanceKm: f64(3.1), DurationSec: iptr(1000)}
+				Source: domain.SourceAppleHealth, ConnectionID: &apple.ID, ExternalID: "w1", DistanceKm: f64(3.1), DurationSec: iptr(1000)}
 			created, err = sessions.InsertExternal(ctx, resent)
 			if err != nil || created {
 				t.Fatalf("second insert created=%v err=%v", created, err)
 			}
 			again2, err := sessions.Find(ctx, user, syncedID)
-			if err != nil || *again2.DistanceKm != 3 || again2.ExternalID != "w1" || again2.Memo != "가볍게" || again2.Source != domain.SourceDevice || *again2.ConnectionID != device.ID {
+			if err != nil || *again2.DistanceKm != 3 || again2.ExternalID != "w1" || again2.Memo != "가볍게" || again2.Source != domain.SourceAppleHealth || *again2.ConnectionID != apple.ID {
 				t.Errorf("after resend = %+v, %v", again2, err)
 			}
 
-			strava := &domain.SyncConnection{ID: uuid.NewString(), UserID: user, Provider: domain.ProviderStrava, Name: "Strava",
-				ExternalAccountID: "42", AccessToken: "a", RefreshToken: "r", TokenExpiresAt: time.Now().Add(time.Hour)}
-			if err := conns.SaveOAuth(ctx, strava); err != nil {
-				t.Fatal(err)
-			}
-			reconnect := &domain.SyncConnection{ID: uuid.NewString(), UserID: user, Provider: domain.ProviderStrava, Name: "Strava 2",
-				ExternalAccountID: "42", AccessToken: "b", RefreshToken: "r2", TokenExpiresAt: time.Now().Add(time.Hour)}
-			if err := conns.SaveOAuth(ctx, reconnect); err != nil {
-				t.Fatal(err)
-			}
-			if reconnect.ID != strava.ID {
-				t.Errorf("reconnect made a new row")
-			}
-			if err := conns.MarkSynced(ctx, strava.ID, time.Now(), "실패"); err != nil {
+			if err := conns.MarkSynced(ctx, apple.ID, time.Now(), "실패"); err != nil {
 				t.Fatal(err)
 			}
 			listed, err := conns.List(ctx, user)
-			if err != nil || len(listed) != 2 || listed[1].AccessToken != "" || listed[1].LastError != "실패" || listed[1].Name != "Strava 2" {
+			if err != nil || len(listed) != 1 || listed[0].LastError != "실패" || listed[0].Provider != domain.ProviderAppleHealth {
 				t.Errorf("connections = %+v, %v", listed, err)
-			}
-			full, err := conns.Find(ctx, user, strava.ID)
-			if err != nil || full.AccessToken != "b" {
-				t.Errorf("find keeps token: %+v, %v", full, err)
 			}
 
 			// 연결을 끊어도 기록은 남는다
-			if err := conns.Delete(ctx, user, device.ID); err != nil {
+			if err := conns.Delete(ctx, user, apple.ID); err != nil {
 				t.Fatal(err)
 			}
 			kept, err := sessions.Find(ctx, user, syncedID)

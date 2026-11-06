@@ -124,7 +124,8 @@ export interface SessionSet {
   reps: number;
 }
 
-export type SessionSource = 'manual' | 'strava' | 'device' | 'apple_health';
+/** device: 예전 폰 자동화로 들어온 기록 (기능은 없앴고 기록만 남는다) */
+export type SessionSource = 'manual' | 'device' | 'apple_health';
 
 export interface Session {
   id: string;
@@ -207,9 +208,9 @@ export interface ActivitySummary {
   has_any_sessions: boolean;
 }
 
-// ── 기기 · 앱 연동 ───────────────────────────────
+// ── Apple 건강 연동 ───────────────────────────────
 
-export type SyncProvider = 'strava' | 'device' | 'apple_health';
+export type SyncProvider = 'apple_health';
 
 export interface SyncConnection {
   id: string;
@@ -223,12 +224,10 @@ export interface SyncConnection {
 }
 
 export interface SyncOverview {
-  strava_enabled: boolean;
-  ingest_url: string;
   connections: SyncConnection[];
 }
 
-/** 연동 기록 가져오기 결과 */
+/** Apple 건강에서 보낸 운동을 저장한 결과 */
 export interface ImportResult {
   fetched: number;
   saved: number;
@@ -237,7 +236,7 @@ export interface ImportResult {
   errors?: string[];
 }
 
-/** 폰이 보낸 운동 기록 하나 (기기 토큰 ingest · Apple 건강 공통 형식) */
+/** iPhone 앱이 Apple 건강에서 읽어 보내는 운동 하나 */
 export interface IngestWorkout {
   id: string;
   date: string;
@@ -248,12 +247,6 @@ export interface IngestWorkout {
   duration_sec?: number;
   calories_kcal?: number;
   avg_heart_rate?: number;
-}
-
-export interface CreatedDevice {
-  connection: SyncConnection;
-  token: string;
-  ingest_url: string;
 }
 
 export interface ApiError {
@@ -274,7 +267,6 @@ export const KIND_LABELS: Record<WorkoutKind | PlanKind, string> = {
 
 export const SOURCE_LABELS: Record<SessionSource, string> = {
   manual: '직접',
-  strava: 'Strava',
   device: '기기',
   apple_health: 'Apple 건강',
 };

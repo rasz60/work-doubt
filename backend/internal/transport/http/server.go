@@ -29,7 +29,7 @@ func NewRouter(d Deps) http.Handler {
 	groupHandler := NewGroupHandler(d.Group)
 	coachHandler := NewCoachHandler(d.Coach)
 	activityHandler := NewActivityHandler(d.Plan, d.Session, d.Activity)
-	syncHandler := NewSyncHandler(d.Sync, d.Config.IngestURL(), d.Config.AppURL()+"/profile")
+	syncHandler := NewSyncHandler(d.Sync)
 
 	mux := http.NewServeMux()
 
@@ -37,9 +37,6 @@ func NewRouter(d Deps) http.Handler {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	// 연동 서비스 · 기기가 부르는 주소: 로그인 토큰 대신 state(서명) · 기기 토큰으로 사용자를 안다
-	mux.HandleFunc("GET /api/v1/sync/strava/callback", syncHandler.StravaCallback)
-	mux.HandleFunc("POST /api/v1/sync/ingest", syncHandler.Ingest)
 
 	// 로그인·가입·로그아웃은 ae:p 포털(Supabase Auth)이 한다. 아래 API 는 전부 인증 필요
 	protected := func(pattern string, handler http.HandlerFunc) {
@@ -79,11 +76,7 @@ func NewRouter(d Deps) http.Handler {
 	protected("GET /api/v1/activity/summary", activityHandler.Summary)
 
 	protected("GET /api/v1/sync", syncHandler.Overview)
-	protected("POST /api/v1/sync/run", syncHandler.Run)
-	protected("GET /api/v1/sync/strava/authorize", syncHandler.StravaAuthorize)
-	protected("POST /api/v1/sync/devices", syncHandler.CreateDevice)
 	protected("POST /api/v1/sync/apple-health", syncHandler.AppleHealth)
-	protected("POST /api/v1/sync/connections/{id}/import", syncHandler.Import)
 	protected("DELETE /api/v1/sync/connections/{id}", syncHandler.Disconnect)
 
 	return withLogging(withCORS(d.Config.AllowOrigin, mux))

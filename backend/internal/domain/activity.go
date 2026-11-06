@@ -61,8 +61,8 @@ type PlanRepository interface {
 type SessionSource string
 
 const (
-	SourceManual      SessionSource = "manual"
-	SourceStrava      SessionSource = "strava"
+	SourceManual SessionSource = "manual"
+	// SourceDevice 는 예전 폰 자동화(기기 토큰)로 들어온 기록이다. 기능은 없앴고 기록만 남는다
 	SourceDevice      SessionSource = "device"
 	SourceAppleHealth SessionSource = "apple_health"
 )

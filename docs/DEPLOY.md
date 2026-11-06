@@ -14,6 +14,7 @@ https://ae2p.duckdns.org/api/workout/*  → 127.0.0.1:8091                 (pm2:
    - [0001_workout_schema.sql](../backend/migrations/0001_workout_schema.sql) — 프로필 · 그룹 · 신체 지표 · AI 코치
    - [0002_activity.sql](../backend/migrations/0002_activity.sql) — 운동 계획 · 수행 기록 · 기기 연동 (**0002 를 실행하기 전에 새 백엔드를 배포하면 HOME · RECORD 가 오류를 낸다**)
    - [0003_apple_health.sql](../backend/migrations/0003_apple_health.sql) — iPhone 앱의 Apple 건강 연동 (iPhone 앱은 [APP.md](APP.md))
+   - [0004_remove_strava_device.sql](../backend/migrations/0004_remove_strava_device.sql) — Strava 연동 · 폰 자동화(기기 토큰) 제거. 아래 "0004 실행 순서"를 따른다
    - `workout` 스키마만 만든다. 업무일지(`public`)는 건드리지 않는다
    - **Settings → API → Exposed schemas 에 `workout` 을 넣지 않는다** (브라우저 REST 노출 금지)
 2. **Connect → Session pooler** 연결 문자열을 복사해 둔다 (DB 비밀번호를 모르면 Settings → Database 에서 재설정)
@@ -85,18 +86,17 @@ GitHub `rasz60/work-doubt` → Settings → Secrets and variables → Actions �
 같은 화면의 **Variables** 탭에 웹 빌드용 공개 값 `EXPO_PUBLIC_SUPABASE_URL` · `EXPO_PUBLIC_SUPABASE_ANON_KEY` (포털과 같은 값).
 서버의 `app/.env` 는 더 이상 빌드에 쓰이지 않는다.
 
-## 7. 기기 연동 (선택)
+## 7. 0004 실행 순서 (Strava · 폰 자동화 제거)
 
-**기기 토큰**(폰 자동화 → 서버)은 설정이 필요 없다. PROFILE › Devices 에서 토큰을 만들면 보낼 주소와 형식이 나온다.
+1. 새 백엔드를 **먼저** 배포한다 (`main` push → Actions). 새 백엔드는 지울 토큰 컬럼을 읽지 않는다
+2. (선택) Strava 로 가져온 기록을 남겨 두려면 SQL Editor 에서 백업한다. **0004 는 이 기록을 영구히 지운다**
+   ```sql
+   CREATE TABLE workout.sessions_strava_backup AS SELECT * FROM workout.sessions WHERE source = 'strava';
+   ```
+3. SQL Editor 에서 [0004_remove_strava_device.sql](../backend/migrations/0004_remove_strava_device.sql) 실행
+4. 서버 `~/work-doubt/.env` 에 남은 `STRAVA_CLIENT_ID` · `STRAVA_CLIENT_SECRET` · `PUBLIC_URL` 은 더 이상 읽지 않으니 지워도 된다
 
-**Strava**(서버가 10분마다 가져옴)는 Strava 앱 키가 있어야 켜진다.
-
-1. https://www.strava.com/settings/api 에서 앱을 만든다. **Authorization Callback Domain** 에 `ae2p.duckdns.org`
-2. 서버 `~/work-doubt/.env` 에 `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` 를 넣고 `bash ~/work-doubt/scripts/deploy.sh` (pm2 만 다시 띄운다)
-3. PROFILE › Devices › CONNECT STRAVA
-
-돌아오는 주소는 `PUBLIC_URL`(기본 `https://ae2p.duckdns.org`) + `/api/workout/api/v1/sync/strava/callback` 이다.
-새 Strava 앱은 처음에 연결할 수 있는 선수 수가 적다(본인 + 몇 명). 그룹 구성원까지 쓰려면 Strava 에 한도 상향을 신청한다.
+순서를 바꿔 0004 를 먼저 실행하면, 옛 백엔드가 지운 컬럼을 읽다가 연동 화면 · 홈 동기화가 오류를 낸다.
 
 ## 운영
 

@@ -16,8 +16,6 @@ interface TrendChartProps {
   /** 변동폭 표시 (기본: 부호 + 소수 한 자리 + unit) */
   formatDelta?: (delta: number) => string;
   emptyText?: string;
-  /** 선 색 (운동 종류 색). 없으면 본문색 */
-  color?: string;
 }
 
 interface Scaled {
@@ -44,12 +42,11 @@ export const TrendChart = ({
   format,
   formatDelta,
   emptyText = '기록이 없습니다. 지표를 입력하면 변동폭이 표시됩니다.',
-  color,
 }: TrendChartProps) => {
   const show = format ?? ((value: number): string => `${value.toFixed(1)}${unit}`);
   const showDelta = formatDelta ?? ((delta: number): string => `${delta > 0 ? '+' : ''}${delta.toFixed(1)}${unit}`);
   const theme = useTheme();
-  const stroke = color ?? theme.text;
+  const stroke = theme.ink;
   const [selected, setSelected] = useState<number | null>(null);
 
   const innerWidth = width - PADDING.left - PADDING.right;
@@ -91,7 +88,7 @@ export const TrendChart = ({
 
   const { delta, first, last } = series.stats;
   // 증감은 색이 아니라 부호로 구분한다 (늘어서 좋은 지표 · 줄어서 좋은 지표가 섞여 있다). 변화가 없을 때만 흐리게.
-  const deltaColor = delta === 0 ? theme.textMuted : theme.text;
+  const deltaColor = delta === 0 ? theme.muted : theme.ink;
   const active = selected === null ? null : points[selected] ?? null;
 
   const pickNearest = (x: number): void => {
@@ -134,7 +131,7 @@ export const TrendChart = ({
           cy={points[points.length - 1]?.y}
           r={4}
           fill={stroke}
-          stroke={theme.surface}
+          stroke={theme.sheet}
           strokeWidth={2}
         />
 
@@ -145,11 +142,11 @@ export const TrendChart = ({
               y1={PADDING.top}
               x2={active.x}
               y2={PADDING.top + innerHeight}
-              stroke={theme.textMuted}
+              stroke={theme.muted}
               strokeWidth={1}
               strokeDasharray="2,3"
             />
-            <Circle cx={active.x} cy={active.y} r={5} fill={theme.surface} stroke={stroke} strokeWidth={2} />
+            <Circle cx={active.x} cy={active.y} r={5} fill={theme.sheet} stroke={stroke} strokeWidth={2} />
           </>
         )}
       </Svg>
@@ -181,10 +178,10 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     // 카드 안에 들어가므로 테두리 없이 제목 · 그래프 · 처음/마지막 값만
     card: { gap: space(2) },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: space(3) },
-    title: { color: theme.textMuted, fontSize: 13, lineHeight: 18, fontWeight: '600', fontFamily: fonts.sans, flex: 1 },
+    title: { color: theme.muted, fontSize: 13, lineHeight: 18, fontWeight: '600', fontFamily: fonts.sans, flex: 1 },
     delta: { fontSize: 28, lineHeight: 32, fontFamily: fonts.numBold, fontVariant: ['tabular-nums'] },
     footer: { flexDirection: 'row', justifyContent: 'space-between' },
-    axisLabel: { color: theme.textMuted, fontSize: 13, fontFamily: fonts.num, fontVariant: ['tabular-nums'] },
-    selectedLabel: { color: theme.text, fontSize: 13, fontFamily: fonts.numBold, fontVariant: ['tabular-nums'] },
-    empty: { color: theme.textMuted, fontSize: 13, lineHeight: 19, fontFamily: fonts.sans },
+    axisLabel: { color: theme.muted, fontSize: 13, fontFamily: fonts.num, fontVariant: ['tabular-nums'] },
+    selectedLabel: { color: theme.ink, fontSize: 13, fontFamily: fonts.numBold, fontVariant: ['tabular-nums'] },
+    empty: { color: theme.muted, fontSize: 13, lineHeight: 19, fontFamily: fonts.sans },
   });

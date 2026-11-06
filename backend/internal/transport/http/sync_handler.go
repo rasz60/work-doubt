@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,72 +14,30 @@ import (
 	"github.com/devsixt/workout/backend/internal/usecase"
 )
 
-// SyncHandler 는 기기 · 앱 연동 API 다.
+// SyncHandler 는 Apple 건강 연동 API 다.
 type SyncHandler struct {
-	sync      *usecase.Sync
-	ingestURL string // 기기 자동화가 기록을 보낼 주소 (화면에 보여 준다)
-	appURL    string // Strava 동의 뒤 돌아갈 앱 화면 (PROFILE)
+	sync *usecase.Sync
 }
 
-func NewSyncHandler(sync *usecase.Sync, ingestURL, appURL string) *SyncHandler {
-	return &SyncHandler{sync: sync, ingestURL: ingestURL, appURL: appURL}
+func NewSyncHandler(sync *usecase.Sync) *SyncHandler {
+	return &SyncHandler{sync: sync}
 }
 
 type syncOverview struct {
-	StravaEnabled bool                    `json:"strava_enabled"`
-	IngestURL     string                  `json:"ingest_url"`
-	Connections   []domain.SyncConnection `json:"connections"`
+	Connections []domain.SyncConnection `json:"connections"`
 }
 
-// Overview 는 GET /api/v1/sync — 연결된 기기와 연결할 수 있는 방법.
+// Overview 는 GET /api/v1/sync — 연결 목록 (지금은 Apple 건강 하나).
 func (h *SyncHandler) Overview(w http.ResponseWriter, r *http.Request) {
 	conns, err := h.sync.Connections(r.Context(), userID(r))
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, syncOverview{StravaEnabled: h.sync.StravaEnabled(), IngestURL: h.ingestURL, Connections: conns})
+	writeJSON(w, http.StatusOK, syncOverview{Connections: conns})
 }
 
-type runSyncRequest struct {
-	Force bool `json:"force"`
-}
-
-// Run 은 POST /api/v1/sync/run — Strava 연결에서 새 활동을 가져온다 (force 가 아니면 10분에 한 번).
-func (h *SyncHandler) Run(w http.ResponseWriter, r *http.Request) {
-	var req runSyncRequest
-	if err := decodeJSON(w, r, &req); err != nil {
-		writeError(w, err)
-		return
-	}
-	conns, err := h.sync.SyncAll(r.Context(), userID(r), req.Force)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, syncOverview{StravaEnabled: h.sync.StravaEnabled(), IngestURL: h.ingestURL, Connections: conns})
-}
-
-type importRequest struct {
-	From string `json:"from"`
-	To   string `json:"to"`
-}
-
-// Import 는 POST /api/v1/sync/connections/{id}/import — 날짜(from=to) · 기간 · 전체(둘 다 비움)의 활동을 가져온다.
-func (h *SyncHandler) Import(w http.ResponseWriter, r *http.Request) {
-	var req importRequest
-	if err := decodeJSON(w, r, &req); err != nil {
-		writeError(w, err)
-		return
-	}
-	result, err := h.sync.Import(r.Context(), userID(r), r.PathValue("id"), req.From, req.To)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
-}
-
+// Disconnect 는 DELETE /api/v1/sync/connections/{id} — 연결을 끊는다 (받은 기록은 남는다).
 func (h *SyncHandler) Disconnect(w http.ResponseWriter, r *http.Request) {
 	if err := h.sync.Disconnect(r.Context(), userID(r), r.PathValue("id")); err != nil {
 		writeError(w, err)
@@ -90,63 +46,9 @@ func (h *SyncHandler) Disconnect(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusNoContent, nil)
 }
 
-// StravaAuthorize 는 GET /api/v1/sync/strava/authorize — 앱이 이 주소로 이동하면 Strava 동의 화면이 뜬다.
-func (h *SyncHandler) StravaAuthorize(w http.ResponseWriter, r *http.Request) {
-	authURL, err := h.sync.StravaAuthURL(userID(r))
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"url": authURL})
-}
+// ── iPhone 앱 → 서버 ─────────────────────────────
 
-// StravaCallback 은 Strava 동의 화면이 돌려보내는 주소다. 브라우저 이동이라 로그인 토큰이 없고, state 로 사용자를 안다.
-// 결과는 앱 PROFILE 화면으로 돌려보내며 알린다 (?sync=strava&result=ok|denied|failed).
-func (h *SyncHandler) StravaCallback(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	result := "ok"
-	switch {
-	case q.Get("error") != "":
-		result = "denied"
-	case !strings.Contains(q.Get("scope"), "activity:read"):
-		result = "denied" // 활동 읽기 권한 체크를 끄고 승인한 경우
-	default:
-		if err := h.sync.StravaCallback(r.Context(), q.Get("state"), q.Get("code")); err != nil {
-			slog.Warn("strava callback", "error", err)
-			result = "failed"
-		}
-	}
-	target := h.appURL + "?" + url.Values{"sync": {"strava"}, "result": {result}}.Encode()
-	http.Redirect(w, r, target, http.StatusFound)
-}
-
-type createDeviceRequest struct {
-	Name string `json:"name"`
-}
-
-type createDeviceResponse struct {
-	Connection *domain.SyncConnection `json:"connection"`
-	Token      string                 `json:"token"` // 이번 한 번만 보여 준다
-	IngestURL  string                 `json:"ingest_url"`
-}
-
-func (h *SyncHandler) CreateDevice(w http.ResponseWriter, r *http.Request) {
-	var req createDeviceRequest
-	if err := decodeJSON(w, r, &req); err != nil {
-		writeError(w, err)
-		return
-	}
-	conn, token, err := h.sync.CreateDevice(r.Context(), userID(r), req.Name)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, createDeviceResponse{Connection: conn, Token: token, IngestURL: h.ingestURL})
-}
-
-// ── 기기 → 서버 (로그인 토큰 대신 기기 토큰) ─────────────────────────────
-
-// ingestItem 은 폰 자동화가 만들기 쉽게 숫자를 문자열로 보내도 받는다 ("5.2", "5,2", "28 min" → 28).
+// ingestItem 은 숫자를 문자열로 보내도 받는다 ("5.2", "5,2", "28 min" → 28).
 type ingestItem struct {
 	ID           flexString `json:"id"`
 	Date         string     `json:"date"`
@@ -167,30 +69,7 @@ type ingestRequest struct {
 	ingestItem
 }
 
-// Ingest 는 POST /api/v1/sync/ingest (Authorization: Bearer wkd_…).
-func (h *SyncHandler) Ingest(w http.ResponseWriter, r *http.Request) {
-	token, ok := bearerToken(r.Header.Get("Authorization"))
-	if !ok {
-		writeError(w, fmt.Errorf("ingest: missing device token: %w", domain.ErrUnauthorized))
-		return
-	}
-
-	defer r.Body.Close()
-	var req ingestRequest
-	// 단축어 등이 덧붙이는 다른 값은 무시한다 (DisallowUnknownFields 를 쓰지 않는다)
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
-		writeError(w, fmt.Errorf("JSON 형식이 올바르지 않습니다: %w", domain.ErrInvalidInput))
-		return
-	}
-	result, err := h.sync.Ingest(r.Context(), token, req.toWorkouts())
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
-}
-
-// AppleHealth 는 POST /api/v1/sync/apple-health — iPhone 앱이 HealthKit 에서 읽은 운동을 보낸다 (형식은 ingest 와 같다).
+// AppleHealth 는 POST /api/v1/sync/apple-health — iPhone 앱이 HealthKit 에서 읽은 운동을 보낸다 .
 func (h *SyncHandler) AppleHealth(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	var req ingestRequest

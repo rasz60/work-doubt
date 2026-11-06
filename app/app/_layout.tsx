@@ -18,14 +18,16 @@ const RootLayout = () => {
         <StatusBar style={theme.dark ? 'light' : 'dark'} />
         <Stack
           screenOptions={{
-            headerStyle: { backgroundColor: theme.bg },
-            headerTintColor: theme.text,
-            contentStyle: { backgroundColor: theme.bg },
+            headerStyle: { backgroundColor: theme.paper },
+            headerTintColor: theme.ink,
+            contentStyle: { backgroundColor: theme.paper },
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(screens)" options={{ headerShown: false }} />
+          <Stack.Screen name="plan" options={{ headerShown: false }} />
           <Stack.Screen name="stats" options={{ headerShown: false }} />
         </Stack>
       </AuthProvider>

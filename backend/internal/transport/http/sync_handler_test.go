@@ -3,13 +3,14 @@ package http
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/devsixt/workout/backend/internal/domain"
 )
 
 func TestIngestRequestDecoding(t *testing.T) {
-	// 폰 자동화는 숫자를 문자열 · 단위 붙은 문자열 · 쉼표 소수로 보내기도 한다
+	// 숫자를 문자열 · 단위 붙은 문자열 · 쉼표 소수로 보내도 받는다
 	body := `{"workouts":[{"id":12345,"date":"2026-10-21","type":"Running","distance_km":"5,2","duration_min":"28 min","calories_kcal":321.5,"extra":"ignored"},
 		{"id":"abc","start":"2026-10-20T07:00:00+09:00","distance_m":"","duration_sec":null}]}`
 
@@ -43,5 +44,22 @@ func TestUserMessage(t *testing.T) {
 	wrapped := fmt.Errorf("러닝은 거리나 시간 중 하나는 입력하세요: %w", domain.ErrInvalidInput)
 	if got := userMessage(wrapped); got != "러닝은 거리나 시간 중 하나는 입력하세요" {
 		t.Errorf("userMessage = %q", got)
+	}
+}
+
+// GET /api/v1/sync 응답은 연결 목록만 싣는다 (Strava · 기기 토큰 안내는 없앴다)
+func TestSyncOverviewShape(t *testing.T) {
+	b, err := json.Marshal(syncOverview{Connections: []domain.SyncConnection{{ID: "c1", Provider: domain.ProviderAppleHealth, Name: "Apple 건강"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(b)
+	for _, gone := range []string{"strava", "ingest_url", "access_token", "token"} {
+		if strings.Contains(body, gone) {
+			t.Errorf("overview has %q: %s", gone, body)
+		}
+	}
+	if !strings.Contains(body, `"connections":[`) {
+		t.Errorf("overview = %s", body)
 	}
 }

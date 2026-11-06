@@ -1,5 +1,5 @@
 import { toNumber } from '@/lib/date';
-import type { PlannedExercise, SessionSet } from '@/types';
+import type { Plan, PlannedExercise, Session, SessionSet } from '@/types';
 
 // 웨이트 입력은 "종목 한 번 + 무게 줄"로 받는다. 스쿼트 20kg 1세트 · 40kg 1세트 · 60kg 3세트 →
 //   스쿼트 | 20 × 5 × 1 / 40 × 5 × 1 / 60 × 5 × 3
@@ -91,37 +91,34 @@ export const plannedFromBlocks = (blocks: ExerciseBlock[], prefix = ''): Planned
 /** 계획 루틴 → 이날 기록용 묶음 (계획 세트 그대로) */
 export const blocksForSession = (exercises: PlannedExercise[]): ExerciseBlock[] => blocksFromPlanned(exercises);
 
-// ── 빠른 입력: "20x5 40x5 60x5x3" = 무게 x 횟수 [x 세트]. 맨몸은 "x10" 또는 "0x10" ──
-
-const QUICK_ITEM = /^(\d+(?:[.,]\d+)?)?\s*[x×*]\s*(\d+)(?:\s*[x×*]\s*(\d+))?$/i;
-
-export const parseQuick = (text: string): LoadRow[] | null => {
-  const items = text
-    .replace(/kg/gi, '')
-    .replace(/\s*([x×*])\s*/gi, '$1') // "60 x 5" → "60x5"
-    .split(/[,/\s]+/)
-    .filter(Boolean);
-  if (items.length === 0) return null;
-  const rows: LoadRow[] = [];
-  for (const item of items) {
-    const m = item.match(QUICK_ITEM);
-    if (!m) return null;
-    const weight = m[1] ? m[1].replace(',', '.') : '';
-    rows.push({ weight: weight === '0' ? '' : weight, reps: m[2] ?? '', sets: m[3] ?? '1' });
-  }
-  return rows;
-};
-
-export const formatQuick = (rows: LoadRow[]): string =>
-  rows
-    .filter((r) => r.reps.trim())
-    .map((r) => `${r.weight.trim()}x${r.reps.trim()}${r.sets.trim() && r.sets.trim() !== '1' ? `x${r.sets.trim()}` : ''}`)
-    .join(' ');
-
 /** 묶음 요약: 5세트 · 최고 60kg */
 export const describeBlock = (block: ExerciseBlock): string => {
   const sets = block.rows.reduce((sum, r) => sum + (r.reps.trim() ? Math.max(1, Math.round(toNumber(r.sets) ?? 1)) : 0), 0);
   const top = Math.max(0, ...block.rows.map((r) => toNumber(r.weight) ?? 0));
   if (sets === 0) return '';
   return `${sets}세트${top > 0 ? ` · 최고 ${top}kg` : ' · 맨몸'}`;
+};
+
+/** 줄 한 줄 글자: 60kg × 5회 × 3세트 / 맨몸 × 10회 (값이 비면 "무게 · 횟수 입력") */
+export const describeRow = (row: LoadRow): string => {
+  const reps = row.reps.trim();
+  if (!reps && !row.weight.trim()) return '무게 · 횟수 입력';
+  const weight = row.weight.trim() ? `${row.weight.trim()}kg` : '맨몸';
+  const sets = Math.max(1, Math.round(toNumber(row.sets) ?? 1));
+  return `${weight} × ${reps || '?'}회${sets > 1 ? ` × ${sets}세트` : ''}`;
+};
+
+/** 고를 수 있는 종목 이름: 지금 계획 → 최근 기록 순, 겹치지 않게. 이미 쓰는 이름은 뺀다 */
+export const exerciseNames = (plans: Plan[], sessions: Session[], exclude: string[] = [], limit = 12): string[] => {
+  const seen = new Set(exclude.map((n) => n.trim()).filter(Boolean));
+  const out: string[] = [];
+  const push = (name: string): void => {
+    const n = name.trim();
+    if (!n || seen.has(n)) return;
+    seen.add(n);
+    out.push(n);
+  };
+  plans[0]?.days.forEach((d) => d.exercises?.forEach((e) => push(e.name)));
+  sessions.forEach((s) => s.sets.forEach((set) => push(set.exercise)));
+  return out.slice(0, limit);
 };

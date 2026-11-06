@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 
 import { TrendChart } from '@/components/TrendChart';
-import { Card, Message, Segmented, Stat, T } from '@/components/ui';
+import { Group, Message, Segmented, Stat, T } from '@/components/ui';
 import { signed, useSummary } from '@/features/stats/useSummary';
 import { StatsPage } from '@/features/stats/StatsPage';
 import { formatKm, formatPace } from '@/lib/date';
@@ -38,9 +38,9 @@ const Run = () => {
     <StatsPage title="러닝" caption="최근 30일" loading={!summary && !error} error={error}>
       {run ? (
         <>
-          <Card kind="run" style={{ gap: space(4) }}>
+          <Group style={{ gap: space(4) }}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space(1.5) }}>
-              <T variant="numXl" color={theme.run.ink}>
+              <T variant="numHero">
                 {formatKm(run.total_km).replace('km', '')}
               </T>
               <T variant="label">km · {run.count}회</T>
@@ -55,10 +55,10 @@ const Run = () => {
               <Stat label="평균 페이스" value={formatPace(run.avg_pace_sec)} sub={run.target_pace_sec ? `목표 ${formatPace(run.target_pace_sec)}` : '/km'} />
               <Stat label="최고 페이스" value={formatPace(run.best_pace_sec)} sub="1km 이상" />
             </View>
-          </Card>
+          </Group>
 
           {hasRuns ? (
-            <Card style={{ gap: space(4) }}>
+            <Group style={{ gap: space(4) }}>
               <Segmented options={VIEWS} value={view} onChange={setView} />
               <T variant="caption">{READS[view]}</T>
               <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
@@ -68,7 +68,6 @@ const Run = () => {
                       series={series}
                       label="최근 6개월"
                       width={width}
-                      color={theme.run.solid}
                       format={(v) => formatPace(v)}
                       formatDelta={(d) => `${signed(d, 0)}초`}
                       emptyText="시간을 함께 기록한 러닝이 없어요."
@@ -79,15 +78,14 @@ const Run = () => {
                       label="최근 6개월"
                       unit={view === 'weekly_km' ? 'km' : ''}
                       width={width}
-                      color={theme.run.solid}
                       emptyText="거리와 시간을 함께 기록한 러닝이 없어요."
                     />
                   )
                 ) : null}
               </View>
-            </Card>
+            </Group>
           ) : (
-            <Message text="최근 6개월 러닝 기록이 없어요. 기록 탭에서 거리와 시간을 남기면 그래프가 생겨요." />
+            <Message text="최근 6개월 러닝 기록이 없어요. 오늘 화면에서 거리와 시간을 기록하면 그래프가 생겨요." />
           )}
         </>
       ) : null}

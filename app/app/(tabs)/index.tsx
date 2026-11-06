@@ -1,27 +1,27 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { ActivityGrid, describeSession, statusText } from '@/components/ActivityGrid';
-import { Heading, Message, Page, Screen, T } from '@/components/ui';
+import { ActivityGrid, describeSession } from '@/components/ActivityGrid';
+import { KindMark } from '@/components/KindMark';
+import { Button, Group, Heading, Message, Page, Row, Screen, Section, T, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { appleHealthSupported, syncAppleHealth } from '@/features/health/appleHealth';
 import { useCalendar } from '@/features/calendar/useCalendar';
+import { sessionFromPlan } from '@/features/record/quickLog';
 import { isBodyweight, signed, useSummary } from '@/features/stats/useSummary';
 import { useAuth } from '@/hooks/useAuth';
 import { addDays, formatKm, formatLongDate, formatNumber, formatPace, startOfWeek, todayString } from '@/lib/date';
-import { alpha, kindColors, radius, space, useTheme } from '@/theme';
-import type { ActivitySummary, CalendarDay, WorkoutKind } from '@/types';
+import { alpha, space, useTheme } from '@/theme';
+import type { ActivitySummary, CalendarDay, PlanDay, Session } from '@/types';
 
 const SYNC_INTERVAL = 10 * 60 * 1000;
 
-// t 는 같은 탭 · 날짜로 다시 눌러도 기록 탭이 알아채게 붙인다
-const goRecord = (params: Record<string, string>): void =>
-  router.push({ pathname: '/record', params: { ...params, t: String(Date.now()) } });
+const KIND_TITLE: Record<string, string> = { run: '러닝', weight: '웨이트', other: '운동' };
 
-// 홈은 "오늘 뭐 하지, 이번 주는 잘 하고 있나" 하나만 답한다.
-// ① 오늘 할 운동 + 기록하기 ② 이번 주 한 줄 ③ 러닝 · 웨이트 · 칼로리 한 줄씩 — 그래프는 누르고 들어간 화면에서
-const Home = () => {
+// 오늘: "오늘 뭐 하지, 이번 주는 잘 하고 있나" 하나만 답한다.
+// ① 오늘 계획 (반전 면 — 이 화면 유일) + 계획대로 완료 ② 이번 주 7칸 ③ 러닝 · 웨이트 · 칼로리 한 줄씩
+const Today = () => {
   const theme = useTheme();
   const { user } = useAuth();
   const today = todayString();
@@ -29,84 +29,263 @@ const Home = () => {
   const { days, loading, error, reload } = useCalendar(weekStart, addDays(weekStart, 6));
   const { summary, error: summaryError, reload: reloadSummary } = useSummary();
 
-  // 연결한 앱(Strava)에서 새 활동을 받아 온다. 서버가 10분에 한 번만 실제로 가져온다.
-  // iPhone 앱은 Apple 건강에 새로 남은 운동도 10분에 한 번 보낸다
-  useEffect(() => {
-    const refresh = (): void => {
-      void reload();
-      void reloadSummary();
-    };
-    void api
-      .runSync(false)
-      .then(async ({ connections }) => {
-        const fresh = connections.some(
-          (c) => c.provider === 'strava' && c.last_synced_at && Date.now() - new Date(c.last_synced_at).getTime() < 60_000,
-        );
-        if (fresh) refresh();
+  const refresh = (): void => {
+    void reload();
+    void reloadSummary();
+  };
 
+  // iPhone 앱이면 Apple 건강에 새로 남은 운동을 10분에 한 번 보낸다
+  useEffect(() => {
+    if (!appleHealthSupported) return;
+    void api
+      .fetchSync()
+      .then(async ({ connections }) => {
         const apple = connections.find((c) => c.provider === 'apple_health');
-        if (!appleHealthSupported || !apple) return;
+        if (!apple) return;
         if (apple.last_synced_at && Date.now() - new Date(apple.last_synced_at).getTime() < SYNC_INTERVAL) return;
         const result = await syncAppleHealth(apple.last_synced_at);
         if (result && result.saved > 0) refresh();
       })
-      .catch(() => undefined); // 동기화 실패는 내 정보의 연결 상태에 남는다
+      .catch(() => undefined); // 실패는 나 › Apple 건강의 연결 상태에 남는다
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const todayDay = days.find((d) => d.date === today);
+  const planned = todayDay?.planned && todayDay.planned.kind !== 'rest' ? todayDay.planned : undefined;
+  const done = (todayDay?.sessions.length ?? 0) > 0;
+  const title = done ? '오늘은 운동했어요' : planned ? `오늘은 ${KIND_TITLE[planned.kind]}` : '오늘은 쉬는 날';
 
   return (
     <Screen>
-      <Page
-        refreshControl={
-          <RefreshControl
-            refreshing={false}
-            onRefresh={() => {
-              void reload();
-              void reloadSummary();
-            }}
-            tintColor={theme.text}
-          />
-        }
-      >
-        <Heading overline={formatLongDate(today)} title={user?.display_name ? `${user.display_name}님, 오늘은` : '오늘은'} />
-
+      <Page refreshControl={<RefreshControl refreshing={false} onRefresh={refresh} tintColor={theme.ink} />}>
+        <Heading overline={`${formatLongDate(today)}${user?.display_name ? ` · ${user.display_name}` : ''}`} title={title} />
         <Message text={error || summaryError} tone="error" />
 
-        {loading && !todayDay ? <ActivityIndicator color={theme.text} /> : null}
-        {todayDay ? <TodayPoster day={todayDay} /> : null}
-        {days.length > 0 ? <WeekCard days={days} today={today} noPlan={!!summary && !summary.current_plan_id} /> : null}
+        {loading && !todayDay ? <ActivityIndicator color={theme.ink} /> : null}
+        {todayDay ? <TodayCard day={todayDay} planned={planned} onSaved={refresh} /> : null}
+
+        {days.length > 0 ? <ThisWeek days={days} today={today} noPlan={!!summary && !summary.current_plan_id} /> : null}
         {summary ? <Overview summary={summary} /> : null}
       </Page>
     </Screen>
   );
 };
 
-/** 이번 주: 7칸 잔디 + "계획 n일 중 m일". 날짜를 누르면 기록 › 캘린더 */
-const WeekCard = ({ days, today, noPlan }: { days: CalendarDay[]; today: string; noPlan: boolean }) => {
+interface TodayCardProps {
+  day: CalendarDay;
+  planned?: PlanDay;
+  onSaved: () => void;
+}
+
+/** 오늘의 계획 · 한 운동. 계획이 있으면 검은 면 위에 크게, "계획대로 완료" 한 번으로 기록된다 */
+const TodayCard = ({ day, planned, onSaved }: TodayCardProps) => {
+  const theme = useTheme();
+  const [busy, setBusy] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  // 방금 "계획대로 완료"로 저장한 기록. 잔디를 다시 받기 전에도 버튼이 다시 눌리지 않게 바로 기억한다 (두 번 저장 방지)
+  const [saved, setSaved] = useState<Session | null>(null);
+  const done = day.sessions.length > 0;
+  const quick = done || saved ? undefined : sessionFromPlan(day.date, planned);
+  // 다시 받은 잔디에 기록이 들어오면 잔디 쪽을 믿는다 (나중에 그 기록을 지우면 다시 "계획대로 완료"가 보인다)
+  useEffect(() => {
+    if (done) setSaved(null);
+  }, [done]);
+  const onInkSoft = alpha(theme.onInk, 0.72);
+
+  const complete = async (): Promise<void> => {
+    if (!quick) return;
+    setBusy(true);
+    setError('');
+    try {
+      setSaved(await api.createSession(quick));
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '기록하지 못했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // 계획도 기록도 없는 날: 검은 면 없이 버튼 하나
+  if (!planned && !done) {
+    return (
+      <View style={{ gap: space(3) }}>
+        <T variant="body" color={theme.muted}>
+          쉬어도 좋고, 하고 싶은 운동을 해도 좋아요.
+        </T>
+        <Button title="오늘 한 운동 기록하기" variant="secondary" onPress={() => router.push({ pathname: '/log', params: { date: day.date } })} />
+      </View>
+    );
+  }
+
+  return (
+    <Group inverse style={{ gap: space(5) }}>
+      {done ? (
+        <View style={{ gap: space(3) }}>
+          <T variant="label" color={onInkSoft}>
+            한 운동
+          </T>
+          {day.sessions.map((s) => (
+            <Pressable
+              key={s.id}
+              onPress={() => router.push({ pathname: '/log', params: { id: s.id, date: s.performed_on } })}
+              accessibilityRole="button"
+              accessibilityLabel={`${describeSession(s)} 고치기`}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space(3), opacity: pressed ? 0.6 : 1 })}
+            >
+              <KindMark kind={s.kind} size={10} color={theme.onInk} />
+              <T variant="heading" color={theme.onInk} style={{ flex: 1 }} numberOfLines={2}>
+                {describeSession(s)}
+              </T>
+              <T variant="small" color={onInkSoft}>
+                고치기
+              </T>
+            </Pressable>
+          ))}
+          {planned ? (
+            <T variant="caption" color={onInkSoft}>
+              계획 {planned.kind === 'run' ? `러닝 ${planned.distance_km ? formatKm(planned.distance_km) : ''}` : `웨이트 ${planned.exercises?.length ?? 0}종목`}
+            </T>
+          ) : null}
+        </View>
+      ) : planned ? (
+        <PlanFace planned={planned} />
+      ) : null}
+
+      {saved && !done ? (
+        <Pressable
+          onPress={() => router.push({ pathname: '/log', params: { id: saved.id, date: saved.performed_on } })}
+          accessibilityRole="button"
+          accessibilityLabel="방금 기록 고치기"
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+        >
+          <T variant="bodyStrong" color={theme.onInk}>
+            기록했어요.{' '}
+            <T variant="bodyStrong" color={theme.onInk} style={{ textDecorationLine: 'underline' }}>
+              고치기
+            </T>
+          </T>
+        </Pressable>
+      ) : null}
+
+      <Message text={error} tone="error" />
+
+      <View style={{ gap: space(2) }}>
+        {quick ? (
+          <Button title={busy ? '기록하는 중…' : '계획대로 완료'} variant="inverse" onPress={() => void complete()} disabled={busy} />
+        ) : (
+          <Button
+            title={done || saved ? '하나 더 기록하기' : '기록하기'}
+            variant="inverse"
+            onPress={() => router.push({ pathname: '/log', params: { date: day.date } })}
+          />
+        )}
+        {quick ? (
+          <TextButton title="직접 입력하기" color={theme.onInk} onPress={() => router.push({ pathname: '/log', params: { date: day.date } })} />
+        ) : null}
+      </View>
+    </Group>
+  );
+};
+
+/** 검은 면 위 오늘 계획: 러닝은 거리를 크게, 웨이트는 종목 줄 */
+const PlanFace = ({ planned }: { planned: PlanDay }) => {
+  const theme = useTheme();
+  const onInkSoft = alpha(theme.onInk, 0.72);
+  if (planned.kind === 'run') {
+    return (
+      <View style={{ gap: space(2) }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+          <KindMark kind="run" size={9} color={onInkSoft} />
+          <T variant="label" color={onInkSoft}>
+            오늘 계획
+          </T>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space(2), flexWrap: 'wrap' }}>
+          <T variant="numHero" color={theme.onInk}>
+            {planned.distance_km ? Number(planned.distance_km.toFixed(2)) : '자유'}
+          </T>
+          {planned.distance_km ? (
+            <T variant="heading" color={theme.onInk}>
+              km
+            </T>
+          ) : null}
+        </View>
+        {planned.pace_sec_per_km ? (
+          <T variant="numMd" color={onInkSoft}>
+            목표 {formatPace(planned.pace_sec_per_km)} /km
+          </T>
+        ) : null}
+      </View>
+    );
+  }
+  const exercises = planned.exercises ?? [];
+  const sets = exercises.reduce((n, e) => n + e.sets, 0);
+  return (
+    <View style={{ gap: space(3) }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+        <KindMark kind="weight" size={9} color={onInkSoft} />
+        <T variant="label" color={onInkSoft}>
+          오늘 계획 · {new Set(exercises.map((e) => e.name)).size}종목 {sets}세트
+        </T>
+      </View>
+      {exercises.length === 0 ? (
+        <T variant="heading" color={theme.onInk}>
+          웨이트
+        </T>
+      ) : (
+        exercises.map((e, i) => (
+          <View key={`${e.name}-${i}`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: space(3) }}>
+            <T variant="heading" color={theme.onInk} style={{ flex: 1 }} numberOfLines={1}>
+              {e.name}
+            </T>
+            <T variant="numMd" color={theme.onInk}>
+              {e.weight_kg ? `${e.weight_kg}kg ` : ''}
+              {e.reps}회 × {e.sets}
+            </T>
+          </View>
+        ))
+      )}
+    </View>
+  );
+};
+
+/** 이번 주 7칸 + "계획 n일 중 m일". 칸을 누르면 캘린더 */
+const ThisWeek = ({ days, today, noPlan }: { days: CalendarDay[]; today: string; noPlan: boolean }) => {
   const theme = useTheme();
   const planned = days.filter((d) => d.planned && d.planned.kind !== 'rest').length;
   const done = days.filter((d) => d.sessions.length > 0).length;
-
   return (
-    <View style={{ gap: space(3), paddingTop: space(2) }}>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space(2), paddingHorizontal: space(1) }}>
-        <T variant="heading">이번 주</T>
-        {planned > 0 ? (
-          <T variant="label">
-            계획 {planned}일 중{' '}
-            <T variant="label" color={theme.text} style={{ fontWeight: '800' }}>
-              {done}일
-            </T>{' '}
-            했어요
+    <Section
+      title="이번 주"
+      right={
+        <T variant="label">
+          {planned > 0 ? (
+            <>
+              계획 {planned}일 중{' '}
+              <T variant="label" color={theme.ink} style={{ fontWeight: '800' }}>
+                {done}일
+              </T>
+            </>
+          ) : done > 0 ? (
+            `${done}일 운동`
+          ) : (
+            '아직 기록 없음'
+          )}
+        </T>
+      }
+    >
+      <ActivityGrid mode="strip" days={days} today={today} onSelect={(date) => router.push({ pathname: '/calendar', params: { date } })} />
+      {noPlan ? (
+        <Pressable onPress={() => router.push('/plan')} accessibilityRole="button" style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+          <T variant="caption">
+            주간 계획이 없어 칸이 비어 있어요.{' '}
+            <T variant="caption" color={theme.ink} style={{ textDecorationLine: 'underline', fontWeight: '600' }}>
+              계획 세우기
+            </T>
           </T>
-        ) : (
-          <T variant="label">{done > 0 ? `${done}일 운동했어요` : '아직 기록이 없어요'}</T>
-        )}
-      </View>
-      <ActivityGrid mode="month" days={days} today={today} selected={today} onSelect={() => goRecord({ tab: 'calendar' })} />
-      {noPlan ? <T variant="caption">운동 계획이 없어 칸이 비어 있어요. 기록 › 계획에서 요일별 루틴을 정해 보세요.</T> : null}
-    </View>
+        </Pressable>
+      ) : null}
+    </Section>
   );
 };
 
@@ -114,206 +293,50 @@ const WeekCard = ({ days, today, noPlan }: { days: CalendarDay[]; today: string;
 const Overview = ({ summary }: { summary: ActivitySummary }) => {
   const { run, exercises, month_kcal: kcal } = summary;
   const month = Number(summary.month.slice(5, 7));
-  // 웨이트는 6개월 동안 가장 많이 오른 종목 하나
   const top = [...exercises].sort((a, b) => b.delta_1rm - a.delta_1rm)[0];
   const toDate = kcal.target_to_date > 0 ? Math.round((kcal.actual / kcal.target_to_date) * 100) : undefined;
 
+  const value = (n: string | undefined, unit: string) => (
+    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
+      <T variant="numLg">{n ?? '-'}</T>
+      {n ? <T variant="small">{unit}</T> : null}
+    </View>
+  );
+
   return (
-    <View style={{ gap: space(1), paddingTop: space(2) }}>
-      <T variant="heading" style={{ paddingHorizontal: space(1) }}>
-        내 기록
-      </T>
-      <View>
-        <OverviewRow
-          kind="run"
+    <Section title="내 기록">
+      <Group flush>
+        <Row
+          first
+          left={<KindMark kind="run" size={9} />}
           title="러닝"
-          value={run.count ? formatKm(run.total_km).replace('km', '') : undefined}
-          unit="km"
-          sub={run.count ? `최근 30일 ${run.count}회 · 평균 ${formatPace(run.avg_pace_sec)}` : '최근 30일 기록이 없어요'}
-          href="/stats/run"
+          meta={run.count ? `최근 30일 ${run.count}회 · 평균 ${formatPace(run.avg_pace_sec)}` : '최근 30일 기록이 없어요'}
+          value={value(run.count ? formatKm(run.total_km).replace('km', '') : undefined, 'km')}
+          onPress={() => router.push('/stats/run')}
+          accessibilityLabel="러닝 자세히 보기"
         />
-        <OverviewRow
-          kind="weight"
+        <Row
+          left={<KindMark kind="weight" size={9} />}
           title="웨이트"
-          value={top ? String(isBodyweight(top) ? top.top_reps : top.estimated_1rm) : undefined}
-          unit={top && isBodyweight(top) ? '회' : 'kg'}
-          sub={
+          meta={
             top
               ? `${top.name} ${isBodyweight(top) ? '최대 횟수' : '1RM'}${top.series.length > 1 ? ` · 6개월 ${signed(top.delta_1rm)}` : ''}`
               : '최근 6개월 기록이 없어요'
           }
-          href="/stats/weight"
-          divider
+          value={value(top ? String(isBodyweight(top) ? top.top_reps : top.estimated_1rm) : undefined, top && isBodyweight(top) ? '회' : 'kg')}
+          onPress={() => router.push('/stats/weight')}
+          accessibilityLabel="웨이트 자세히 보기"
         />
-        <OverviewRow
+        <Row
           title="칼로리"
-          value={toDate !== undefined ? String(toDate) : kcal.actual > 0 ? formatNumber(kcal.actual) : undefined}
-          unit={toDate !== undefined ? '%' : 'kcal'}
-          sub={toDate !== undefined ? `${month}월 목표를 오늘까지 이만큼 채웠어요` : `${month}월 소비 칼로리`}
-          href="/stats/kcal"
-          divider
+          meta={toDate !== undefined ? `${month}월 목표를 오늘까지 이만큼 채웠어요` : `${month}월 소비 칼로리`}
+          value={value(toDate !== undefined ? String(toDate) : kcal.actual > 0 ? formatNumber(kcal.actual) : undefined, toDate !== undefined ? '%' : 'kcal')}
+          onPress={() => router.push('/stats/kcal')}
+          accessibilityLabel="칼로리 자세히 보기"
         />
-      </View>
-    </View>
+      </Group>
+    </Section>
   );
 };
 
-interface OverviewRowProps {
-  kind?: WorkoutKind;
-  title: string;
-  value?: string;
-  unit: string;
-  sub: string;
-  href: '/stats/run' | '/stats/weight' | '/stats/kcal';
-  divider?: boolean;
-}
-
-const OverviewRow = ({ kind, title, value, unit, sub, href, divider }: OverviewRowProps) => {
-  const theme = useTheme();
-  const ink = kind ? kindColors(theme, kind).ink : theme.text;
-  return (
-    <Pressable
-      onPress={() => router.push(href)}
-      accessibilityRole="button"
-      accessibilityLabel={`${title} 자세히 보기`}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: space(3),
-        paddingVertical: space(3.5),
-        paddingHorizontal: space(1),
-        borderTopWidth: divider ? 1 : 0,
-        borderTopColor: theme.dark ? theme.line : theme.fieldBorder + '55',
-        opacity: pressed ? 0.6 : 1,
-      })}
-    >
-      <View style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, backgroundColor: kind ? kindColors(theme, kind).solid : theme.rest.solid }} />
-      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        <T variant="label">{title}</T>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-          <T variant="numLg" color={value ? ink : theme.textMuted}>
-            {value ?? '-'}
-          </T>
-          {value ? <T variant="label">{unit}</T> : null}
-        </View>
-        <T variant="caption" numberOfLines={1}>
-          {sub}
-        </T>
-      </View>
-      <T variant="heading" color={theme.textMuted}>
-        ›
-      </T>
-    </Pressable>
-  );
-};
-
-const KIND_NAMES: Record<string, string> = { run: '러닝', weight: '웨이트', other: '운동', rest: '쉬는 날' };
-
-/**
- * 오늘의 포스터: 홈에서 가장 먼저, 가장 크게 보이는 것.
- * 운동 종류의 색으로 꽉 채운 면 위에 종류 이름을 크게, 그 아래 오늘 할 것(종목 · 거리)과 기록하기 버튼.
- */
-const TodayPoster = ({ day }: { day: CalendarDay }) => {
-  const theme = useTheme();
-  const planned = day.planned && day.planned.kind !== 'rest' ? day.planned : undefined;
-  const kind = day.sessions[0]?.kind ?? planned?.kind;
-  const done = day.sessions.length > 0;
-  const colors = kindColors(theme, kind ?? 'rest');
-  // 쉬는 날은 색 없이 옅은 면 · 본문색 글자
-  const fill = kind ? colors.solid : theme.rest.soft;
-  const ink = kind ? theme.onKind : theme.text;
-  const inkSoft = kind ? alpha(theme.onKind, 0.82) : theme.textMuted;
-
-  const lines: { name: string; detail: string }[] =
-    planned?.kind === 'weight'
-      ? (planned.exercises ?? []).map((e) => ({
-          name: e.name,
-          detail: `${e.sets}×${e.reps}${e.weight_kg ? ` · ${e.weight_kg}kg` : ''}`,
-        }))
-      : planned?.kind === 'run'
-        ? [
-            {
-              name: '거리 · 페이스',
-              detail: [planned.distance_km && formatKm(planned.distance_km), planned.pace_sec_per_km && `${formatPace(planned.pace_sec_per_km)}/km`]
-                .filter(Boolean)
-                .join(' · ') || '자유롭게',
-            },
-          ]
-        : [];
-
-  return (
-    <View style={{ backgroundColor: fill, borderRadius: radius.card + 4, padding: space(5), gap: space(5) }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <T variant="label" color={inkSoft}>
-          {planned?.kind === 'weight' && planned.exercises?.length
-            ? `${planned.exercises.length}종목 · ${planned.exercises.reduce((n, e) => n + e.sets, 0)}세트`
-            : planned
-              ? '오늘 계획'
-              : '오늘은 계획이 없어요'}
-        </T>
-        {planned || done ? (
-          <View style={{ borderRadius: radius.pill, paddingHorizontal: space(2.5), paddingVertical: 2, borderWidth: 1, borderColor: inkSoft }}>
-            <T variant="small" color={ink}>
-              {statusText(day)}
-            </T>
-          </View>
-        ) : null}
-      </View>
-
-      <T color={ink} style={{ fontSize: 60, lineHeight: 64, fontWeight: '800', letterSpacing: -2 }}>
-        {KIND_NAMES[kind ?? 'rest']}
-      </T>
-
-      {lines.length > 0 ? (
-        <View style={{ gap: space(2) }}>
-          {lines.map((l) => (
-            <View key={l.name} style={{ flexDirection: 'row', alignItems: 'baseline', gap: space(3) }}>
-              <T variant="bodyStrong" color={ink} style={{ flex: 1, fontSize: 16 }} numberOfLines={1}>
-                {l.name}
-              </T>
-              <T variant="numSm" color={ink}>
-                {l.detail}
-              </T>
-            </View>
-          ))}
-        </View>
-      ) : !planned && !done ? (
-        <T variant="body" color={inkSoft}>
-          쉬어도 좋고, 하고 싶은 운동을 해도 좋아요.
-        </T>
-      ) : null}
-
-      {done ? (
-        <View style={{ gap: space(1.5), borderTopWidth: 1, borderTopColor: alpha(kind ? theme.onKind : theme.text, 0.25), paddingTop: space(3) }}>
-          <T variant="label" color={inkSoft}>
-            한 운동
-          </T>
-          {day.sessions.map((s) => (
-            <T key={s.id} variant="bodyStrong" color={ink} numberOfLines={1}>
-              {describeSession(s)}
-            </T>
-          ))}
-        </View>
-      ) : null}
-
-      <Pressable
-        onPress={() => goRecord({ tab: 'log', date: day.date })}
-        accessibilityRole="button"
-        style={({ pressed }) => ({
-          height: 54,
-          borderRadius: radius.tile,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: kind ? theme.onKind : theme.text,
-          opacity: pressed ? 0.8 : 1,
-        })}
-      >
-        <T variant="bodyStrong" color={kind ? colors.solid : theme.bg} style={{ fontSize: 17, fontWeight: '800' }}>
-          {done ? '하나 더 기록하기' : '기록하기'}
-        </T>
-      </Pressable>
-    </View>
-  );
-};
-
-export default Home;
+export default Today;

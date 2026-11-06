@@ -3,6 +3,16 @@
 ae:p 포털(`https://ae2p.duckdns.org`)의 **운동기록** 앱입니다. 웹은 포털 아래 `/workout/` 에서 돌고,
 같은 코드(Expo)로 iOS / Android 앱도 만들 수 있습니다.
 
+## 기능
+
+- **오늘**: 오늘 계획을 크게 보여 주고, 계획이 있으면 **계획대로 완료** 버튼 한 번으로 기록합니다. 이번 주 잔디와 러닝 · 웨이트 · 칼로리 요약.
+- **기록하기**: 러닝은 거리 · 시간 두 칸, 웨이트는 종목을 칩으로 고르고 `무게 × 횟수 × 세트` 줄을 눌러 고칩니다. 칼로리 · 심박 · 메모는 필요할 때만 펼칩니다.
+- **캘린더**: 월 · 주 잔디(진할수록 계획을 채운 날), 고른 날의 계획과 기록, 최근 2주 기록. 기록을 눌러 고치거나 지웁니다.
+- **주간 계획**: 요일별 러닝(거리 · 페이스) · 웨이트(종목 · 세트) · 휴식. 고칠 때마다 적용 시작일이 붙은 버전으로 쌓입니다.
+- **AI 코치**: 내 기록과 신체 지표를 보고 답하는 대화.
+- **나**: 신체 기록(체중 · 키 · 골격근량 · 체지방률), 그룹(서로의 지표 차트 공유), Apple 건강 연결(iPhone 의 ae:p 앱).
+- **통계**: 러닝(거리 · 페이스 · 러닝 능력), 웨이트(종목별 추정 1RM), 소비 칼로리.
+
 ## 포털 안에서의 구조
 
 ```
@@ -30,7 +40,7 @@ https://ae2p.duckdns.org/api/workout/*  Caddy ─── 127.0.0.1:8091     Go AP
 | Auth | Supabase Auth (ae:p 포털). 백엔드는 JWKS 로 JWT 검증 (`internal/platform/auth/supabase.go`) |
 | DB | 공용 Supabase Postgres `workout` 스키마 ([backend/migrations](backend/migrations)) |
 | AI | Anthropic Go SDK — 지표를 프롬프트에 넣어 SSE 로 스트리밍 |
-| 연동 | Strava API(OAuth, 서버가 가져옴) · Apple 건강(iPhone 앱이 HealthKit 에서 읽어 보냄) · 기기 토큰(폰 자동화가 보냄) |
+| 연동 | Apple 건강 (iPhone 앱이 HealthKit 에서 읽어 보냄) |
 | iPhone 앱 | EAS Build · TestFlight ([docs/APP.md](docs/APP.md)) |
 
 ## 디렉터리
@@ -41,16 +51,18 @@ work-doubt/
 │  ├─ cmd/api/main.go            # 진입점 · 의존성 조립
 │  ├─ internal/
 │  │  ├─ domain/                 # 엔티티 + 리포지토리 인터페이스
-│  │  ├─ usecase/                # account, metric, group, coach, plan, session, activity(잔디 · 통계), sync
+│  │  ├─ usecase/                # account, metric, group, coach, plan, session, activity(잔디 · 통계), sync(Apple 건강)
 │  │  ├─ repository/postgres/    # SQL (workout.* 스키마)
-│  │  ├─ platform/               # auth (Supabase JWT 검증), ai (Claude), strava
+│  │  ├─ platform/               # auth (Supabase JWT 검증), ai (Claude)
 │  │  ├─ transport/http/         # 라우터 · 핸들러 · 미들웨어
 │  │  └─ config/
-│  └─ migrations/                # 0001 기본 스키마 · 0002 운동 계획 · 수행 기록 · 연동 · 0003 Apple 건강
+│  └─ migrations/                # 0001 기본 스키마 · 0002 운동 계획 · 수행 기록 · 연동 · 0003 Apple 건강 · 0004 Strava · 기기 토큰 제거
 ├─ app/                          # Expo 클라이언트
 │  ├─ public/index.html          # 웹 템플릿: 포털 로딩 화면 + 앱 전환 버튼
-│  ├─ app/                       # 화면 (login · (tabs)/ HOME · RECORD · COACH · PROFILE · stats/ 홈에서 들어가는 러닝 · 웨이트 · 종목 · 칼로리)
-│  ├─ src/features/              # calendar(잔디 · 캘린더), record(계획 · 수행 기록 · 신체), profile(연결된 기기)
+│  ├─ app/                       # 화면: (tabs)/ 오늘 · 캘린더 · 코치 · 나 / (screens)/ 기록하기 · 신체 기록 · 그룹 · Apple 건강
+│  │                             #       plan/ 주간 계획 · 요일 편집 · 지난 계획 / stats/ 러닝 · 웨이트 · 종목 · 칼로리
+│  ├─ src/theme.ts               # 흑백 토큰 (paper · ink · sheet …). 운동 종류는 색이 아니라 기호(● ■ ▲)
+│  ├─ src/features/              # calendar(잔디 · 캘린더), record(기록 입력 · 계획 · 계획대로 완료), health(Apple 건강), stats
 │  └─ src/api/supabase.ts        # 세션 (포털과 공유)
 ├─ scripts/deploy.sh             # 서버 배포: Actions 가 빌드한 묶음을 받아 바꿔 끼운다 (서버에서는 빌드하지 않음)
 └─ ecosystem.config.cjs          # pm2
@@ -109,15 +121,9 @@ cd backend && TEST_DATABASE_URL='postgres://postgres:pw@localhost:55432/postgres
 | PUT/DELETE | `/api/v1/sessions/{id}` | 기록 고치기 / 삭제 |
 | GET | `/api/v1/activity/calendar?from=&to=` | 잔디: 날짜마다 그날 계획 · 기록 · 상태 · 진하기 |
 | GET | `/api/v1/activity/summary?month=YYYY-MM` | 목표 대비 칼로리(오늘 · 월), 러닝 · 웨이트 수행 능력 |
-| GET | `/api/v1/sync` | 연결된 기기 · Strava 사용 가능 여부 · 기기 전송 주소 |
-| POST | `/api/v1/sync/run` | Strava 동기화 (`force` 가 아니면 10분에 한 번) |
-| GET | `/api/v1/sync/strava/authorize` | Strava 동의 화면 주소 |
-| POST | `/api/v1/sync/apple-health` | iPhone 앱이 HealthKit 운동을 보냄 (형식은 ingest 와 같다). 연결이 없으면 만들고, 빈 목록이면 연결만 |
-| POST | `/api/v1/sync/devices` | 기기 토큰 만들기 (토큰은 이때 한 번만 보인다) |
-| POST | `/api/v1/sync/connections/{id}/import` | Strava 활동 가져오기 `{from, to}` — 날짜(from=to) · 기간 · 전체(둘 다 비움). 이미 있는 기록은 건너뜀 |
+| GET | `/api/v1/sync` | 연결 목록 (Apple 건강) |
+| POST | `/api/v1/sync/apple-health` | iPhone 앱이 HealthKit 운동을 보냄. 연결이 없으면 만들고, 빈 목록이면 연결만 |
 | DELETE | `/api/v1/sync/connections/{id}` | 연결 끊기 (받은 기록은 남는다) |
-| GET | `/api/v1/sync/strava/callback` | (로그인 없음, 서명된 state) Strava 가 돌려보내는 주소 |
-| POST | `/api/v1/sync/ingest` | (로그인 대신 `Bearer wkd_…` 기기 토큰) 폰 자동화가 운동 기록을 보냄 |
 
 포털 아래에서는 앞에 `/api/workout` 이 붙습니다 (Caddy 가 떼고 넘긴다).
 
@@ -134,18 +140,19 @@ cd backend && TEST_DATABASE_URL='postgres://postgres:pw@localhost:55432/postgres
   그날 적용되던 계획으로 채점합니다(`usecase.PlanFor`). 요일 계획은 `plans.days`(jsonb) 한 칸 — 형식은 `domain.PlanDay`.
 - **잔디 채점**(`usecase.Score`): 러닝은 달린 거리 / 목표 거리(거리 없이 시간만 있으면 목표 페이스로 환산),
   웨이트는 한 세트 수 / 계획 세트 수, 계획과 다른 운동만 했으면 일부(30%). 95% 이상이면 완료.
-- **칼로리**: 기기 · 사용자가 준 값이 없으면 최근 체중으로 추정합니다(러닝 체중×거리, 웨이트 MET 5 · 세트당 3분).
+- **칼로리**: Apple 건강 · 사용자가 준 값이 없으면 최근 체중으로 추정합니다(러닝 체중×거리, 웨이트 MET 5 · 세트당 3분).
   목표는 요일 계획의 `target_kcal`, 비우면 계획으로 추정합니다.
 - **수행 능력**: 러닝은 Daniels VDOT(거리 · 시간으로 추정한 유산소 능력), 웨이트는 Epley 추정 1RM(맨몸 종목은 최대 횟수).
 - **연동 기록은 한 번 들어오면 고치지 않습니다.** 가져올 때 이미 있는 운동은 건너뜁니다(`usecase.IsDuplicate`):
-  같은 연결의 같은 활동(external_id)이거나, 출처가 다른데 같은 날 · 같은 종류에 거리(±3%) · 시간(±5%)이 비슷한 기록(직접 입력 · 다른 기기).
+  같은 연결의 같은 활동(external_id)이거나, 출처가 다른데 같은 날 · 같은 종류에 거리(±3%) · 시간(±5%)이 비슷한 기록(직접 입력).
   같은 연결에서 온 서로 다른 활동(하루 두 번 달리기)은 따로 들어갑니다.
-- **웨이트 입력**은 종목 한 번 + `무게 × 횟수 × 세트` 줄입니다(빠른 입력 `20x5 40x5 60x5x3`). 저장은 세트마다 한 줄(`session_sets`),
+- **웨이트 입력**은 종목 한 번 + `무게 × 횟수 × 세트` 줄입니다. 화면에는 줄을 글자로 보여 주고 누른 줄만 스테퍼로 엽니다. 저장은 세트마다 한 줄(`session_sets`),
   계획은 무게 줄마다 한 항목(`PlannedExercise`)이라 스키마는 그대로입니다 (`app/src/features/record/exercises.ts`).
-  기기 토큰은 sha256 만 저장합니다. Strava 토큰은 DB 에 그대로 두므로 `workout` 스키마를 브라우저에 노출하지 않는 규칙이 중요합니다.
+- **계획대로 완료**: 오늘 계획을 버튼 한 번으로 기록합니다(`features/record/quickLog.ts`). 러닝은 계획 거리만 넣고 시간은 지어내지 않습니다.
+- **예전 기기 기록**: 폰 자동화(기기 토큰)는 없앴지만 그때 들어온 기록(`source = device`)은 남아 있습니다.
 
 ## 다음에 채울 것
 
 - AI 코치 프롬프트에 운동 계획 · 최근 수행 기록 넣기 (지금은 신체 지표만)
-- 같은 운동을 직접 입력 + 기기로 이중 기록했을 때 알려 주기
+- 같은 운동을 직접 입력 + Apple 건강으로 이중 기록했을 때 알려 주기
 - 걸음 수 · 심박 · 수면 등 운동 외 건강 데이터

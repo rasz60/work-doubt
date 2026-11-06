@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 
-import { Button, Card, Chip, Field, Heading, Message, Screen, T } from '@/components/ui';
+import { Button, Chip, Field, Group, Heading, Message, Screen, T } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { askCoach } from '@/api/coachStream';
-import { radius, space, useTheme } from '@/theme';
+import { layout, radius, space, useTheme } from '@/theme';
 import { GOAL_LABELS, type ChatMessage, type Conversation, type Goal } from '@/types';
 
 const GOALS = Object.keys(GOAL_LABELS) as Goal[];
@@ -96,14 +96,14 @@ const Coach = () => {
   if (loading) {
     return (
       <Screen>
-        <ActivityIndicator color={theme.text} />
+        <ActivityIndicator color={theme.ink} />
       </Screen>
     );
   }
 
   return (
     <Screen>
-      <View style={{ flex: 1, width: '100%', maxWidth: 640, alignSelf: 'center', gap: space(3), paddingBottom: space(3) }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center', gap: space(3), paddingBottom: space(3) }}>
         <Heading title={conversation ? conversation.title : 'AI 코치'} caption={conversation ? undefined : '내 기록과 신체 지표를 보고 답해요.'} />
 
         {!conversation && (
@@ -125,10 +125,10 @@ const Coach = () => {
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.length === 0 && !streaming && (
-            <Card>
+            <Group style={{ gap: space(2) }}>
               <T variant="label">이렇게 물어보세요</T>
               <T variant="body">주 3회 운동할 수 있는데, 체지방을 줄이려면 어떤 루틴이 좋을까요?</T>
-            </Card>
+            </Group>
           )}
 
           {messages.map((message) => (
@@ -159,23 +159,23 @@ const Bubble = ({ role, content }: BubbleProps) => {
   const theme = useTheme();
   const mine = role === 'user';
 
-  // 내 질문은 오른쪽 잉크색 말풍선, 코치 답변은 왼쪽 흰 카드
+  // 내 질문은 오른쪽 검은 말풍선, 코치 답변은 왼쪽 회색 면 위 본문
   return (
     <View
       style={{
         alignSelf: mine ? 'flex-end' : 'stretch',
         maxWidth: mine ? '85%' : '100%',
-        backgroundColor: mine ? theme.text : theme.surface,
-        borderRadius: radius.card,
-        borderBottomRightRadius: mine ? 4 : radius.card,
-        borderTopLeftRadius: mine ? radius.card : 4,
+        backgroundColor: mine ? theme.ink : theme.sheet,
+        borderRadius: radius.group,
+        borderBottomRightRadius: mine ? 4 : radius.group,
+        borderTopLeftRadius: mine ? radius.group : 4,
         paddingHorizontal: space(4),
         paddingVertical: space(3),
         gap: space(1),
       }}
     >
       {!mine && <T variant="small">코치</T>}
-      <T variant="body" color={mine ? theme.bg : theme.text} selectable style={{ lineHeight: 24 }}>
+      <T variant="body" color={mine ? theme.onInk : theme.ink} selectable style={{ lineHeight: 24 }}>
         {content}
       </T>
     </View>

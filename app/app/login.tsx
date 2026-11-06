@@ -3,7 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 
 import { goToPortalLogin, usesPortalLogin } from '@/api/supabase';
-import { Button, Card, Field, Message, Page, Screen, SectionTitle, T } from '@/components/ui';
+import { Button, Field, Group, Message, Page, Screen, T } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { space, useTheme } from '@/theme';
 
@@ -50,25 +50,24 @@ const Login = () => {
   return (
     <Screen>
       <Page>
-        {/* 워드마크: 전광판 숫자체로 쓴 앱 이름 + 세 가지 운동 색 */}
-        <View style={{ paddingTop: space(12), paddingBottom: space(4), gap: space(3) }}>
-          <T variant="numXl" style={{ fontSize: 56, lineHeight: 58 }}>
+        {/* 워드마크: 좁은 숫자체로 쓴 앱 이름 + 운동 종류 기호 */}
+        <View style={{ paddingTop: space(12), paddingBottom: space(2), gap: space(3) }}>
+          <T variant="numHero" style={{ fontSize: 56, lineHeight: 58 }}>
             NO-WORK-DOUBT.
           </T>
-          <View style={{ flexDirection: 'row', gap: space(1.5) }}>
-            {[theme.run.solid, theme.weight.solid, theme.other.solid].map((c) => (
-              <View key={c} style={{ width: space(8), height: 4, borderRadius: 2, backgroundColor: c }} />
-            ))}
-          </View>
+          <T variant="heading" color={theme.muted}>
+            ● ■ ▲
+          </T>
         </View>
 
-        <Card style={{ gap: space(4) }}>
-          <SectionTitle title="로그인" caption="ae:p 계정으로 로그인해요. 계정은 초대로만 만들 수 있어요." />
+        <Group style={{ gap: space(4) }}>
+          <T variant="heading">로그인</T>
+          <T variant="caption">ae:p 계정으로 로그인해요. 계정은 초대로만 만들 수 있어요.</T>
           <Field label="이메일" value={email} onChangeText={setEmail} keyboardType="email-address" />
           <Field label="비밀번호" value={password} onChangeText={setPassword} secureTextEntry />
           <Message text={error} tone="error" />
           <Button title={busy ? '로그인하는 중…' : '로그인'} onPress={() => void submit()} disabled={busy} />
-        </Card>
+        </Group>
       </Page>
     </Screen>
   );
