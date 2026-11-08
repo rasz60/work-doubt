@@ -15,6 +15,7 @@ https://ae2p.duckdns.org/api/workout/*  → 127.0.0.1:8091                 (pm2:
    - [0002_activity.sql](../backend/migrations/0002_activity.sql) — 운동 계획 · 수행 기록 · 기기 연동 (**0002 를 실행하기 전에 새 백엔드를 배포하면 HOME · RECORD 가 오류를 낸다**)
    - [0003_apple_health.sql](../backend/migrations/0003_apple_health.sql) — iPhone 앱의 Apple 건강 연동 (iPhone 앱은 [APP.md](APP.md))
    - [0004_remove_strava_device.sql](../backend/migrations/0004_remove_strava_device.sql) — Strava 연동 · 폰 자동화(기기 토큰) 제거. 아래 "0004 실행 순서"를 따른다
+   - [0005_tester.sql](../backend/migrations/0005_tester.sql) — 공용 테스터 계정의 기본 데이터 잠금 · 정리 · 매일 04:00 정리. **먼저 Database → Extensions 에서 `pg_cron` 을 켠다.** 새 백엔드 배포 전에 실행한다 (안 하면 테스터 로그아웃 정리만 실패한다)
    - `workout` 스키마만 만든다. 업무일지(`public`)는 건드리지 않는다
    - **Settings → API → Exposed schemas 에 `workout` 을 넣지 않는다** (브라우저 REST 노출 금지)
 2. **Connect → Session pooler** 연결 문자열을 복사해 둔다 (DB 비밀번호를 모르면 Settings → Database 에서 재설정)

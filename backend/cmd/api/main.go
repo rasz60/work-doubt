@@ -61,6 +61,7 @@ func run() error {
 		plans     = postgres.NewPlanRepository(pool)
 		sessions  = postgres.NewSessionRepository(pool)
 		conns     = postgres.NewSyncConnectionRepository(pool)
+		testers   = postgres.NewTesterRepository(pool)
 
 		engine = ai.NewClaude(cfg.AnthropicAPIKey, cfg.ClaudeModel)
 		clock  = usecase.NewClock(loc)
@@ -77,6 +78,7 @@ func run() error {
 		Session:  usecase.NewSession(sessions, clock),
 		Activity: usecase.NewActivity(plans, sessions, metrics, clock),
 		Sync:     usecase.NewSync(conns, sessions, clock),
+		Tester:   usecase.NewTester(testers),
 	})
 
 	server := &http.Server{

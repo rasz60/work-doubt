@@ -26,9 +26,24 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	}
 }
 
+const (
+	testerLockedMessage  = "기본 데이터는 테스터가 바꿀 수 없어요"
+	testerBlockedMessage = "테스터 계정에서는 쓸 수 없는 기능이에요"
+)
+
 // writeError 는 도메인 센티널 에러를 HTTP 상태 코드로 매핑한다.
 func writeError(w http.ResponseWriter, err error) {
 	status, code := http.StatusInternalServerError, "internal_error"
+
+	// 테스터 계정(P-0004): 문장이 정해져 있다
+	switch {
+	case errors.Is(err, domain.ErrTesterLocked):
+		writeJSON(w, http.StatusForbidden, errorBody{Error: "tester_locked", Message: testerLockedMessage})
+		return
+	case errors.Is(err, domain.ErrTesterBlocked):
+		writeJSON(w, http.StatusForbidden, errorBody{Error: "tester_blocked", Message: testerBlockedMessage})
+		return
+	}
 
 	switch {
 	case errors.Is(err, domain.ErrInvalidInput):

@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, View } from 'react-native';
 
 import { Button, Chip, Field, Group, Heading, Message, Screen, T } from '@/components/ui';
 import * as api from '@/api/endpoints';
+import { HttpError } from '@/api/client';
 import { askCoach } from '@/api/coachStream';
 import { layout, radius, space, useTheme } from '@/theme';
 import { GOAL_LABELS, type ChatMessage, type Conversation, type Goal } from '@/types';
@@ -22,6 +23,8 @@ const Coach = () => {
   const [busy, setBusy] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
+  // 공용 테스터 계정은 AI 코치를 쓸 수 없다 (서버가 403 tester_blocked)
+  const [blocked, setBlocked] = useState<boolean>(false);
 
   // 가장 최근 대화를 이어서 열고, 없으면 비워 둔다.
   const bootstrap = useCallback(async (): Promise<void> => {
@@ -34,7 +37,8 @@ const Coach = () => {
       setGoal(latest.goal ?? 'fat_loss');
       setMessages((await api.fetchMessages(latest.id)).items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '대화를 불러오지 못했습니다.');
+      if (err instanceof HttpError && err.code === 'tester_blocked') setBlocked(true);
+      else setError(err instanceof Error ? err.message : '대화를 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
@@ -97,6 +101,20 @@ const Coach = () => {
     return (
       <Screen>
         <ActivityIndicator color={theme.ink} />
+      </Screen>
+    );
+  }
+
+  if (blocked) {
+    return (
+      <Screen>
+        <View style={{ width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center', gap: space(3) }}>
+          <Heading title="AI 코치" caption="테스터 계정에서는 쓸 수 없는 기능이에요." />
+          <Group style={{ gap: space(2) }}>
+            <T variant="body">AI 코치는 초대받은 계정으로 로그인하면 쓸 수 있어요.</T>
+            <T variant="small">운동 기록 · 계획 · 신체 지표는 테스터 계정에서도 그대로 써 볼 수 있어요.</T>
+          </Group>
+        </View>
       </Screen>
     );
   }

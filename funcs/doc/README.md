@@ -1,6 +1,6 @@
 # 운동기록 기능 정의서
 
-현재 버전: v2.0.0 (2026-11-06)
+현재 버전: v2.1.0 (2026-11-06)
 
 ## 기능 목록
 | 기능 ID | 기능 | 화면/경로 | API | 설명 | 도입 버전 |
@@ -17,6 +17,7 @@
 | F-010 | 통계 | /stats/run · weight · exercise · kcal | GET /api/v1/activity/summary | 러닝(거리 · 페이스 · VDOT), 웨이트(종목별 추정 1RM), 소비 칼로리 | v1.0.0 |
 | F-011 | Apple 건강 연동 | /health (iPhone 의 ae:p 앱) | GET /api/v1/sync, POST /api/v1/sync/apple-health, DELETE /api/v1/sync/connections/{id} | HealthKit 운동을 받아 기록으로. 중복은 건너뛴다 | v1.0.0 |
 | F-014 | 계획대로 완료 | / | POST /api/v1/sessions | 오늘 계획을 버튼 한 번으로 기록 | v2.0.0 |
+| F-015 | 테스터 계정 잠금 · 정리 | (포털 '테스터로 입장하기') | POST /api/v1/tester/reset | 공용 테스터 계정의 기본 데이터 잠금, 새로 만든 데이터는 로그아웃 · 매일 04:00 정리 | v2.1.0 |
 
 ## 기능 상세
 
@@ -88,7 +89,17 @@
 - 계획에 거리가 없거나 종목이 없으면 버튼 대신 "기록하기"로 입력 화면을 연다
 - 기록한 뒤에는 한 운동을 눌러 고칠 수 있다
 
+### F-015 테스터 계정 잠금 · 정리
+- 대상: 포털의 공용 테스터 계정(`auth.users.raw_app_meta_data.role = 'tester'`). 판단은 DB 의 `auth.users`를 읽는다(앱은 1분 캐시).
+- 잠금: [migrations/0005_tester.sql](../../backend/migrations/0005_tester.sql) 의 트리거. 기본 데이터(`tester_baseline_at` 이전에 만든 행)를 고치거나 지우면 403 `tester_locked` "기본 데이터는 테스터가 바꿀 수 없어요". 테스터가 넣는 행의 `created_at`은 지금으로 고정된다. 편집 중(`tester_editing`)에는 꺼지고, 그동안 정리는 편집을 시작하기 전(`tester_edit_started_at`)에 남은 데이터만 지운다.
+- 막은 기능: AI 코치(F-009, 대화 만들기 · 목록 · 메시지 · 묻기), 그룹 만들기 · 참여(F-008), Apple 건강 받기(F-011) → 403 `tester_blocked` "테스터 계정에서는 쓸 수 없는 기능이에요". 코치 탭은 안내 화면을 보여 준다. DB 트리거도 같은 쓰기를 막는다(AE402).
+- 정리: `POST /api/v1/tester/reset`(포털이 로그아웃 직전에 부름) · 매일 04:00(한국) `pg_cron` → `workout.tester_reset`. 기준 시각 이후에 만든 기록 · 계획 · 신체 기록 · 대화 · 그룹 · 연동을 지운다. 프로필은 남는다. 테스터가 아니면 `{ deleted: 0 }`.
+
 ## 변경 이력
+
+### v2.1.0 — 2026-11-06 — 계획 P-0004
+- 추가: F-015 테스터 계정 잠금 · 정리 — 기본 데이터 잠금 트리거, 정리 API · 매일 정리 (마이그레이션 0005)
+- 수정: F-008 그룹 · F-009 AI 코치 · F-011 Apple 건강 연동 — 테스터 계정은 403 (코치 탭 안내 화면)
 
 ### v2.0.0 — 2026-11-06 — 계획 P-0002
 - 삭제: F-012 Strava 연동 — 쓰지 않아 제거. 연결 · 토큰과 Strava 로 가져온 기록을 DB 에서 지운다(0004). API `POST /sync/run`, `POST /sync/connections/{id}/import`, `GET /sync/strava/authorize`, `GET /sync/strava/callback` 삭제

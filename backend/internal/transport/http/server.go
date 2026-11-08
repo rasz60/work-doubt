@@ -20,6 +20,7 @@ type Deps struct {
 	Session  *usecase.Session
 	Activity *usecase.Activity
 	Sync     *usecase.Sync
+	Tester   *usecase.Tester
 }
 
 // NewRouter 는 Go 1.22 ServeMux 패턴 라우팅으로 전체 API 를 구성한다.
@@ -30,6 +31,7 @@ func NewRouter(d Deps) http.Handler {
 	coachHandler := NewCoachHandler(d.Coach)
 	activityHandler := NewActivityHandler(d.Plan, d.Session, d.Activity)
 	syncHandler := NewSyncHandler(d.Sync)
+	testerHandler := NewTesterHandler(d.Tester)
 
 	mux := http.NewServeMux()
 
@@ -42,6 +44,10 @@ func NewRouter(d Deps) http.Handler {
 	protected := func(pattern string, handler http.HandlerFunc) {
 		mux.HandleFunc(pattern, requireAuth(d.Verifier, d.Account, handler))
 	}
+	// 테스터 계정(P-0004)에게 막은 기능: AI 코치, 그룹 만들기 · 참여, Apple 건강 연동
+	blocked := func(pattern string, handler http.HandlerFunc) {
+		protected(pattern, blockTester(d.Tester, handler))
+	}
 
 	protected("GET /api/v1/me", accountHandler.Me)
 	protected("PATCH /api/v1/me", accountHandler.UpdateProfile)
@@ -52,16 +58,16 @@ func NewRouter(d Deps) http.Handler {
 	protected("GET /api/v1/metrics/series", metricHandler.Series)
 	protected("DELETE /api/v1/metrics/{id}", metricHandler.Delete)
 
-	protected("POST /api/v1/groups", groupHandler.Create)
+	blocked("POST /api/v1/groups", groupHandler.Create)
 	protected("GET /api/v1/groups", groupHandler.List)
-	protected("POST /api/v1/groups/join", groupHandler.Join)
+	blocked("POST /api/v1/groups/join", groupHandler.Join)
 	protected("GET /api/v1/groups/{id}/members", groupHandler.Members)
 	protected("DELETE /api/v1/groups/{id}/members/me", groupHandler.Leave)
 
-	protected("POST /api/v1/coach/conversations", coachHandler.StartConversation)
-	protected("GET /api/v1/coach/conversations", coachHandler.ListConversations)
-	protected("GET /api/v1/coach/conversations/{id}/messages", coachHandler.Messages)
-	protected("POST /api/v1/coach/conversations/{id}/ask", coachHandler.Ask)
+	blocked("POST /api/v1/coach/conversations", coachHandler.StartConversation)
+	blocked("GET /api/v1/coach/conversations", coachHandler.ListConversations)
+	blocked("GET /api/v1/coach/conversations/{id}/messages", coachHandler.Messages)
+	blocked("POST /api/v1/coach/conversations/{id}/ask", coachHandler.Ask)
 
 	protected("GET /api/v1/plans", activityHandler.ListPlans)
 	protected("POST /api/v1/plans", activityHandler.SavePlan)
@@ -76,8 +82,11 @@ func NewRouter(d Deps) http.Handler {
 	protected("GET /api/v1/activity/summary", activityHandler.Summary)
 
 	protected("GET /api/v1/sync", syncHandler.Overview)
-	protected("POST /api/v1/sync/apple-health", syncHandler.AppleHealth)
+	blocked("POST /api/v1/sync/apple-health", syncHandler.AppleHealth)
 	protected("DELETE /api/v1/sync/connections/{id}", syncHandler.Disconnect)
+
+	// 포털이 테스터 로그아웃 직전에 부른다. 테스터가 아니면 아무것도 지우지 않는다
+	protected("POST /api/v1/tester/reset", testerHandler.Reset)
 
 	return withLogging(withCORS(d.Config.AllowOrigin, mux))
 }
