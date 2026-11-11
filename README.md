@@ -62,7 +62,7 @@ work-doubt/
 │  ├─ public/index.html          # 웹 템플릿: 포털 로딩 화면 + 앱 전환 버튼
 │  ├─ app/                       # 화면: (tabs)/ 오늘 · 캘린더 · 코치 · 나 / (screens)/ 기록하기 · 신체 기록 · 그룹 · Apple 건강
 │  │                             #       plan/ 주간 계획 · 요일 편집 · 지난 계획 / stats/ 러닝 · 웨이트 · 종목 · 칼로리
-│  ├─ src/theme.ts               # 흑백 토큰 (paper · ink · sheet …). 운동 종류는 색이 아니라 기호(● ■ ▲)
+│  ├─ src/theme.ts               # 레트로 픽셀 토큰 (민트 몸체 · LCD · 잉크 외곽선, 밤 모드). 운동 종류는 기호(● ■ ▲)
 │  ├─ src/features/              # calendar(잔디 · 캘린더), record(기록 입력 · 계획 · 계획대로 완료), health(Apple 건강), stats
 │  └─ src/api/supabase.ts        # 세션 (포털과 공유)
 ├─ scripts/deploy.sh             # 서버 배포: Actions 가 빌드한 묶음을 받아 바꿔 끼운다 (서버에서는 빌드하지 않음)

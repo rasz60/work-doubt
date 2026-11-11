@@ -2,9 +2,9 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { KindMark } from '@/components/KindMark';
-import { T } from '@/components/ui';
+import { T, focusProps } from '@/components/ui';
 import { WEEKDAY_LABELS, formatDuration, formatKm, formatPace, weekdayLabel } from '@/lib/date';
-import { LEVEL_ALPHA, alpha, radius, space, useTheme, type Theme } from '@/theme';
+import { OUTLINE, space, useTheme, type Theme } from '@/theme';
 import type { CalendarDay, DayStatus, PlanDay, PlanKind, Session, WorkoutKind } from '@/types';
 
 export const STATUS_LABELS: Record<DayStatus, string> = {
@@ -27,23 +27,18 @@ interface CellLook {
   textColor: string;
 }
 
-/** 칸 모양: 진하기 = 달성 정도(검정의 농도). 못 한 날은 점선, 앞으로의 계획은 테두리, 휴식은 옅은 면 */
+/** 칸 모양: 진하기 = 달성 정도(LCD 초록의 농도). 못 한 날은 점선, 앞으로의 계획은 잉크 테두리, 휴식은 LCD 면 */
 export const cellLook = (day: Pick<CalendarDay, 'status' | 'level'>, theme: Theme): CellLook => {
   switch (day.status) {
     case 'missed':
-      return { backgroundColor: theme.paper, borderColor: theme.border, borderStyle: 'dashed', textColor: theme.muted };
+      return { backgroundColor: theme.field, borderColor: theme.muted, borderStyle: 'dashed', textColor: theme.muted };
     case 'planned':
-      return { backgroundColor: theme.paper, borderColor: theme.ink, borderStyle: 'solid', textColor: theme.ink };
+      return { backgroundColor: theme.field, borderColor: theme.outline, borderStyle: 'solid', textColor: theme.ink };
     case 'rest':
-      return { backgroundColor: theme.sheet, borderColor: 'transparent', borderStyle: 'solid', textColor: theme.muted };
+      return { backgroundColor: theme.sheet, borderColor: theme.sheetShade, borderStyle: 'solid', textColor: theme.muted };
     default: {
-      const level = Math.max(1, Math.min(4, day.level));
-      return {
-        backgroundColor: alpha(theme.ink, LEVEL_ALPHA[level] ?? 1),
-        borderColor: 'transparent',
-        borderStyle: 'solid',
-        textColor: level >= 3 ? theme.onInk : theme.ink,
-      };
+      const level = theme.level[Math.max(1, Math.min(4, day.level)) - 1] ?? theme.level[3];
+      return { backgroundColor: level?.bg ?? theme.petInk, borderColor: theme.outline, borderStyle: 'solid', textColor: level?.fg ?? theme.ink };
     }
   }
 };
@@ -93,15 +88,70 @@ interface ActivityGridProps {
   onSelect: (date: string) => void;
 }
 
-/** 잔디. month = 달력, week = 하루 한 줄, strip = 홈의 이번 주 7칸 */
+/** 잔디. month = 달력, week = 하루 한 줄, strip = 홈의 이번 주 7칸 막대 */
 export const ActivityGrid = ({ mode, days, month, today, selected, onSelect }: ActivityGridProps) =>
   mode === 'week' ? (
     <WeekList days={days} today={today} selected={selected} onSelect={onSelect} />
+  ) : mode === 'strip' ? (
+    <WeekBars days={days} today={today} onSelect={onSelect} />
   ) : (
-    <MonthGrid days={days} month={month} today={today} selected={selected} onSelect={onSelect} strip={mode === 'strip'} />
+    <MonthGrid days={days} month={month} today={today} selected={selected} onSelect={onSelect} strip={false} />
   );
 
 type GridProps = Omit<ActivityGridProps, 'mode'> & { strip?: boolean };
+
+const BAR_SLOTS = 4;
+const SLOT_H = 14;
+
+// 홈의 이번 주: 하루가 막대 한 개. 달성 진하기(1~4)만큼 칸이 차오른다. 예정은 빈 칸, 못 한 날은 점선 칸. 누르면 그 날 캘린더
+const WeekBars = ({ days, today, onSelect }: Omit<GridProps, 'month' | 'selected' | 'strip'>) => {
+  const theme = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', gap: space(1.5) }}>
+      {days.map((day) => {
+        const isToday = day.date === today;
+        const filled = day.status === 'done' || day.status === 'partial' || day.status === 'extra' ? Math.max(1, Math.min(BAR_SLOTS, day.level)) : 0;
+        return (
+          <Pressable
+            key={day.date}
+            onPress={() => onSelect(day.date)}
+            accessibilityRole="button"
+            accessibilityLabel={`${day.date} ${STATUS_LABELS[day.status]}`}
+            {...focusProps}
+            style={{ flex: 1, minHeight: 44, alignItems: 'center', gap: space(1.5) }}
+          >
+            <View style={{ height: BAR_SLOTS * (SLOT_H + 2), justifyContent: 'flex-end', gap: 2, alignSelf: 'stretch' }}>
+              {Array.from({ length: BAR_SLOTS }, (_, k) => {
+                const slot = BAR_SLOTS - 1 - k; // 위에서부터
+                const on = slot < filled;
+                const ghost = slot === 0 && !on && (day.status === 'planned' || day.status === 'missed');
+                return (
+                  <View
+                    key={slot}
+                    style={{
+                      height: SLOT_H,
+                      backgroundColor: on ? theme.petInk : 'transparent',
+                      borderWidth: ghost ? 2 : 0,
+                      borderColor: day.status === 'missed' ? theme.muted : theme.petInk,
+                      borderStyle: day.status === 'missed' ? 'dashed' : 'solid',
+                      opacity: !on && !ghost ? 0.18 : 1,
+                      ...(!on && !ghost ? { backgroundColor: theme.petInk } : null),
+                    }}
+                  />
+                );
+              })}
+            </View>
+            <View style={{ alignSelf: 'stretch', height: 3, backgroundColor: theme.petInk }} />
+            <T variant="small" color={isToday ? theme.ink : theme.muted}>
+              {weekdayLabel(day.weekday)}
+            </T>
+            <View style={{ width: 6, height: 6, backgroundColor: isToday ? theme.led : 'transparent' }} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+};
 
 // 달력 모양 잔디. 칸 안에 날짜를 적어 며칠인지 바로 보이게 한다.
 const MonthGrid = ({ days, month, today, selected, onSelect, strip }: GridProps) => {
@@ -132,15 +182,15 @@ const MonthGrid = ({ days, month, today, selected, onSelect, strip }: GridProps)
                 accessibilityRole="button"
                 accessibilityLabel={`${day.date} ${STATUS_LABELS[day.status]}`}
                 accessibilityState={{ selected: isSelected }}
+                {...focusProps}
                 style={{
                   flex: 1,
                   aspectRatio: 1,
-                  borderRadius: radius.cell,
                   backgroundColor: look.backgroundColor,
-                  borderWidth: look.borderColor === 'transparent' ? 0 : 1.5,
+                  borderWidth: OUTLINE,
                   borderColor: look.borderColor,
                   borderStyle: look.borderStyle,
-                  opacity: outside ? 0.3 : 1,
+                  opacity: outside ? 0.35 : 1,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -154,13 +204,13 @@ const MonthGrid = ({ days, month, today, selected, onSelect, strip }: GridProps)
                     pointerEvents="none"
                     style={{
                       position: 'absolute',
-                      top: -4,
-                      left: -4,
-                      right: -4,
-                      bottom: -4,
-                      borderRadius: radius.cell + 3,
-                      borderWidth: 2,
-                      borderColor: isSelected ? theme.ink : theme.muted,
+                      top: -OUTLINE - 3,
+                      left: -OUTLINE - 3,
+                      right: -OUTLINE - 3,
+                      bottom: -OUTLINE - 3,
+                      borderWidth: 3,
+                      // 고른 칸은 빨간 테두리(켜짐), 오늘은 점선
+                      borderColor: isSelected ? theme.led : theme.ink,
                       borderStyle: isSelected ? 'solid' : 'dotted',
                     }}
                   />
@@ -189,12 +239,14 @@ const WeekList = ({ days, today, selected, onSelect }: GridProps) => {
             onPress={() => onSelect(day.date)}
             accessibilityRole="button"
             accessibilityState={{ selected: isSelected }}
+            {...focusProps}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               gap: space(3),
               padding: space(2),
-              borderRadius: radius.box,
+              borderWidth: OUTLINE,
+              borderColor: isSelected ? theme.led : 'transparent',
               backgroundColor: isSelected ? theme.sheet : 'transparent',
             }}
           >
@@ -202,9 +254,8 @@ const WeekList = ({ days, today, selected, onSelect }: GridProps) => {
               style={{
                 width: 46,
                 height: 46,
-                borderRadius: radius.cell,
                 backgroundColor: look.backgroundColor,
-                borderWidth: look.borderColor === 'transparent' ? 0 : 1.5,
+                borderWidth: OUTLINE,
                 borderColor: look.borderColor,
                 borderStyle: look.borderStyle,
                 alignItems: 'center',
@@ -245,22 +296,12 @@ const WeekList = ({ days, today, selected, onSelect }: GridProps) => {
 export const ActivityLegend = () => {
   const theme = useTheme();
   const swatch = (look: Partial<CellLook>) => (
-    <View
-      style={{
-        width: 14,
-        height: 14,
-        borderRadius: 4,
-        backgroundColor: look.backgroundColor,
-        borderWidth: look.borderColor ? 1.5 : 0,
-        borderColor: look.borderColor,
-        borderStyle: look.borderStyle,
-      }}
-    />
+    <View style={{ width: 16, height: 16, backgroundColor: look.backgroundColor, borderWidth: 3, borderColor: look.borderColor, borderStyle: look.borderStyle }} />
   );
   const item = (key: string, mark: React.ReactNode, label: string) => (
     <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: space(1.5) }}>
       {mark}
-      <T variant="small" style={{ fontWeight: '500' }}>
+      <T variant="small" color={theme.ink}>
         {label}
       </T>
     </View>
@@ -270,15 +311,15 @@ export const ActivityLegend = () => {
       {item(
         'level',
         <View style={{ flexDirection: 'row', gap: 2 }}>
-          {[1, 2, 3, 4].map((l) => (
-            <View key={l} style={{ width: 8, height: 14, borderRadius: 2, backgroundColor: alpha(theme.ink, LEVEL_ALPHA[l] ?? 1) }} />
+          {theme.level.map((l, i) => (
+            <View key={i} style={{ width: 10, height: 16, backgroundColor: l.bg, borderWidth: 2, borderColor: theme.outline }} />
           ))}
         </View>,
         '진할수록 계획을 채움',
       )}
-      {item('planned', swatch({ backgroundColor: theme.paper, borderColor: theme.ink, borderStyle: 'solid' }), '예정')}
-      {item('missed', swatch({ backgroundColor: theme.paper, borderColor: theme.border, borderStyle: 'dashed' }), '못 한 날')}
-      {item('kinds', <T variant="small">● ■ ▲</T>, '러닝 · 웨이트 · 기타')}
+      {item('planned', swatch({ backgroundColor: theme.field, borderColor: theme.outline, borderStyle: 'solid' }), '예정')}
+      {item('missed', swatch({ backgroundColor: theme.field, borderColor: theme.muted, borderStyle: 'dashed' }), '못 한 날')}
+      {item('kinds', <T variant="small" color={theme.ink}>● ■ ▲</T>, '러닝 · 웨이트 · 기타')}
     </View>
   );
 };

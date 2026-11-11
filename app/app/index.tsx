@@ -1,7 +1,7 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 
+import { Loading } from '@/components/Pixel';
 import { Screen } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -12,7 +12,7 @@ const Index = () => {
   if (loading) {
     return (
       <Screen>
-        <ActivityIndicator />
+        <Loading />
       </Screen>
     );
   }

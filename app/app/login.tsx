@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 
+import { Loading, Pet } from '@/components/Pixel';
 import { goToPortalLogin, usesPortalLogin } from '@/api/supabase';
 import { Button, Field, Group, Message, Page, Screen, T } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,7 +30,7 @@ const Login = () => {
   if (usesPortalLogin) {
     return (
       <Screen>
-        <ActivityIndicator />
+        <Loading />
       </Screen>
     );
   }
@@ -50,9 +51,10 @@ const Login = () => {
   return (
     <Screen>
       <Page>
-        {/* 워드마크: 좁은 숫자체로 쓴 앱 이름 + 운동 종류 기호 */}
+        {/* 워드마크: 도트 숫자체로 쓴 앱 이름 + 펫 + 운동 종류 기호 */}
         <View style={{ paddingTop: space(12), paddingBottom: space(2), gap: space(3) }}>
-          <T variant="numHero" style={{ fontSize: 56, lineHeight: 58 }}>
+          <Pet mood="happy" cell={6} hop />
+          <T variant="numHero" style={{ fontSize: 42, lineHeight: 50 }}>
             NO-WORK-DOUBT.
           </T>
           <T variant="heading" color={theme.muted}>

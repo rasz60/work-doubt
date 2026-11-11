@@ -1,7 +1,7 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
 import { Redirect, Stack } from 'expo-router';
 
+import { Loading } from '@/components/Pixel';
 import { Screen } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/theme';
@@ -14,7 +14,7 @@ const ScreensLayout = () => {
   if (loading) {
     return (
       <Screen>
-        <ActivityIndicator color={theme.ink} />
+        <Loading />
       </Screen>
     );
   }

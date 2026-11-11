@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
+import { Loading } from '@/components/Pixel';
 import { describePlan } from '@/components/ActivityGrid';
 import { KindMark } from '@/components/KindMark';
 import { Button, DatePicker, Header, Message, Page, Screen, StickyFooter, T, TextButton } from '@/components/ui';
@@ -131,7 +132,7 @@ const Log = () => {
         </View>
 
         {loading ? (
-          <ActivityIndicator color={theme.ink} />
+          <Loading />
         ) : (
           <SessionEditor draft={draft} onChange={set} suggestions={suggestions} />
         )}

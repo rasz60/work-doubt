@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
+import { Loading, Pet, PetNote } from '@/components/Pixel';
 import { Button, Chip, Field, Group, Heading, Message, Screen, T } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { HttpError } from '@/api/client';
 import { askCoach } from '@/api/coachStream';
-import { layout, radius, space, useTheme } from '@/theme';
+import { fonts, layout, space, useTheme } from '@/theme';
 import { GOAL_LABELS, type ChatMessage, type Conversation, type Goal } from '@/types';
 
 const GOALS = Object.keys(GOAL_LABELS) as Goal[];
@@ -100,7 +101,7 @@ const Coach = () => {
   if (loading) {
     return (
       <Screen>
-        <ActivityIndicator color={theme.ink} />
+        <Loading />
       </Screen>
     );
   }
@@ -143,23 +144,26 @@ const Coach = () => {
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.length === 0 && !streaming && (
-            <Group style={{ gap: space(2) }}>
-              <T variant="label">이렇게 물어보세요</T>
-              <T variant="body">주 3회 운동할 수 있는데, 체지방을 줄이려면 어떤 루틴이 좋을까요?</T>
-            </Group>
+            <View style={{ gap: space(3) }}>
+              <PetNote mood="happy">궁금한 걸 물어보세요. 내 기록과 신체 지표를 보고 답해요.</PetNote>
+              <Group style={{ gap: space(2) }}>
+                <T variant="label">이렇게 물어보세요</T>
+                <T variant="body">주 3회 운동할 수 있는데, 체지방을 줄이려면 어떤 루틴이 좋을까요?</T>
+              </Group>
+            </View>
           )}
 
           {messages.map((message) => (
             <Bubble key={message.id} role={message.role} content={message.content} />
           ))}
-          {streaming !== '' && <Bubble role="assistant" content={streaming} />}
+          {streaming !== '' && <Bubble role="assistant" content={streaming} streaming />}
         </ScrollView>
 
         <Message text={error} tone="error" />
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space(2) }}>
           <Field value={draft} onChangeText={setDraft} multiline autoCapitalize="sentences" placeholder="코치에게 물어보기" style={{ flex: 1 }} />
-          <View style={{ width: 92 }}>
+          <View style={{ width: 112 }}>
             <Button title={busy ? '…' : '보내기'} onPress={() => void send()} disabled={busy || !draft.trim()} />
           </View>
         </View>
@@ -171,31 +175,45 @@ const Coach = () => {
 interface BubbleProps {
   role: ChatMessage['role'];
   content: string;
+  /** 지금 답변이 흘러 들어오는 중 */
+  streaming?: boolean;
 }
 
-const Bubble = ({ role, content }: BubbleProps) => {
+const Bubble = ({ role, content, streaming }: BubbleProps) => {
   const theme = useTheme();
   const mine = role === 'user';
 
-  // 내 질문은 오른쪽 검은 말풍선, 코치 답변은 왼쪽 회색 면 위 본문
-  return (
+  // 코치 답변은 왼쪽 펫 + LCD 말풍선(꼬리 있음), 내 질문은 오른쪽 크림색 말풍선. 길게 읽는 본문은 시스템 고딕
+  const bubble = (
     <View
       style={{
-        alignSelf: mine ? 'flex-end' : 'stretch',
-        maxWidth: mine ? '85%' : '100%',
-        backgroundColor: mine ? theme.ink : theme.sheet,
-        borderRadius: radius.group,
-        borderBottomRightRadius: mine ? 4 : radius.group,
-        borderTopLeftRadius: mine ? radius.group : 4,
+        flexShrink: 1,
+        backgroundColor: mine ? theme.cream : theme.sheet,
+        borderWidth: 3,
+        borderColor: theme.outline,
         paddingHorizontal: space(4),
         paddingVertical: space(3),
         gap: space(1),
       }}
     >
       {!mine && <T variant="small">코치</T>}
-      <T variant="body" color={mine ? theme.onInk : theme.ink} selectable style={{ lineHeight: 24 }}>
+      <T variant="body" color={mine ? theme.onCream : theme.ink} selectable style={{ lineHeight: 25, fontFamily: fonts.sans }}>
         {content}
       </T>
+    </View>
+  );
+
+  if (mine) return <View style={{ alignSelf: 'flex-end', maxWidth: '85%', paddingRight: 4 }}>{bubble}</View>;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space(2), paddingRight: 4 }}>
+      <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'flex-end', backgroundColor: theme.sheet, borderWidth: 3, borderColor: theme.outline }}>
+        <Pet mood={streaming ? 'cheer' : 'normal'} cell={3} hop={!!streaming} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        {/* 말풍선 꼬리: 펫 쪽으로 향한 네모 */}
+        <View style={{ position: 'absolute', left: -9, top: 14, width: 12, height: 12, backgroundColor: theme.sheet, borderLeftWidth: 3, borderBottomWidth: 3, borderColor: theme.outline, transform: [{ rotate: '45deg' }], zIndex: 1 }} />
+        {bubble}
+      </View>
     </View>
   );
 };

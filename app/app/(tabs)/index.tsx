@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, View } from 'react-native';
+import { Pressable, RefreshControl, View } from 'react-native';
 import { router } from 'expo-router';
 
+import { Loading, PetNote } from '@/components/Pixel';
+import { PetHero } from '@/features/pet/PetHero';
+import { petState } from '@/features/pet/petMood';
 import { ActivityGrid, describeSession } from '@/components/ActivityGrid';
 import { KindMark } from '@/components/KindMark';
 import { Button, Group, Heading, Message, Page, Row, Screen, Section, T, TextButton } from '@/components/ui';
@@ -11,8 +14,8 @@ import { useCalendar } from '@/features/calendar/useCalendar';
 import { sessionFromPlan } from '@/features/record/quickLog';
 import { isBodyweight, signed, useSummary } from '@/features/stats/useSummary';
 import { useAuth } from '@/hooks/useAuth';
-import { addDays, formatKm, formatLongDate, formatNumber, formatPace, startOfWeek, todayString } from '@/lib/date';
-import { alpha, space, useTheme } from '@/theme';
+import { addDays, formatKm, formatLongDate, formatNumber, formatPace, isoWeekday, startOfWeek, todayString } from '@/lib/date';
+import { space, useTheme } from '@/theme';
 import type { ActivitySummary, CalendarDay, PlanDay, Session } from '@/types';
 
 const SYNC_INTERVAL = 10 * 60 * 1000;
@@ -52,6 +55,18 @@ const Today = () => {
   const todayDay = days.find((d) => d.date === today);
   const planned = todayDay?.planned && todayDay.planned.kind !== 'rest' ? todayDay.planned : undefined;
   const done = (todayDay?.sessions.length ?? 0) > 0;
+  const weekDone = days.filter((d) => d.sessions.length > 0).length;
+  const weekPlanned = days.filter((d) => d.planned && d.planned.kind !== 'rest').length;
+  const pet = petState({
+    doneToday: done,
+    plannedToday: !!planned,
+    plannedLabel: planned ? KIND_TITLE[planned.kind] : undefined,
+    weekDone,
+    weekPlanned,
+    weekday: isoWeekday(today),
+  });
+  const kcal = summary?.month_kcal;
+  const kcalPct = kcal && kcal.target_to_date > 0 ? Math.round((kcal.actual / kcal.target_to_date) * 100) : undefined;
   const title = done ? '오늘은 운동했어요' : planned ? `오늘은 ${KIND_TITLE[planned.kind]}` : '오늘은 쉬는 날';
 
   return (
@@ -60,7 +75,8 @@ const Today = () => {
         <Heading overline={`${formatLongDate(today)}${user?.display_name ? ` · ${user.display_name}` : ''}`} title={title} />
         <Message text={error || summaryError} tone="error" />
 
-        {loading && !todayDay ? <ActivityIndicator color={theme.ink} /> : null}
+        {loading && !todayDay ? <Loading /> : null}
+        {days.length > 0 ? <PetHero state={pet} weekDone={weekDone} weekPlanned={weekPlanned} kcalPct={kcalPct} /> : null}
         {todayDay ? <TodayCard day={todayDay} planned={planned} onSaved={refresh} /> : null}
 
         {days.length > 0 ? <ThisWeek days={days} today={today} noPlan={!!summary && !summary.current_plan_id} /> : null}
@@ -89,7 +105,7 @@ const TodayCard = ({ day, planned, onSaved }: TodayCardProps) => {
   useEffect(() => {
     if (done) setSaved(null);
   }, [done]);
-  const onInkSoft = alpha(theme.onInk, 0.72);
+  const onInkSoft = theme.onInkSoft;
 
   const complete = async (): Promise<void> => {
     if (!quick) return;
@@ -109,9 +125,9 @@ const TodayCard = ({ day, planned, onSaved }: TodayCardProps) => {
   if (!planned && !done) {
     return (
       <View style={{ gap: space(3) }}>
-        <T variant="body" color={theme.muted}>
+        <PetNote mood="sleepy" hop={false}>
           쉬어도 좋고, 하고 싶은 운동을 해도 좋아요.
-        </T>
+        </PetNote>
         <Button title="오늘 한 운동 기록하기" variant="secondary" onPress={() => router.push({ pathname: '/log', params: { date: day.date } })} />
       </View>
     );
@@ -133,7 +149,7 @@ const TodayCard = ({ day, planned, onSaved }: TodayCardProps) => {
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space(3), opacity: pressed ? 0.6 : 1 })}
             >
               <KindMark kind={s.kind} size={10} color={theme.onInk} />
-              <T variant="heading" color={theme.onInk} style={{ flex: 1 }} numberOfLines={2}>
+              <T variant="heading" color={theme.onInk} style={{ flex: 1, fontSize: 18, lineHeight: 24 }} numberOfLines={2}>
                 {describeSession(s)}
               </T>
               <T variant="small" color={onInkSoft}>
@@ -190,7 +206,7 @@ const TodayCard = ({ day, planned, onSaved }: TodayCardProps) => {
 /** 검은 면 위 오늘 계획: 러닝은 거리를 크게, 웨이트는 종목 줄 */
 const PlanFace = ({ planned }: { planned: PlanDay }) => {
   const theme = useTheme();
-  const onInkSoft = alpha(theme.onInk, 0.72);
+  const onInkSoft = theme.onInkSoft;
   if (planned.kind === 'run') {
     return (
       <View style={{ gap: space(2) }}>

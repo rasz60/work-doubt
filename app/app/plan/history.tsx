@@ -60,8 +60,8 @@ const PlanHistory = () => {
                   {formatShortDate(plan.effective_from)} ~ {until}
                 </T>
                 {isCurrent || isFuture ? (
-                  <View style={{ backgroundColor: isCurrent ? theme.ink : theme.paper, borderRadius: radius.pill, paddingHorizontal: space(2.5), paddingVertical: 2, borderWidth: 1, borderColor: theme.ink }}>
-                    <T variant="small" color={isCurrent ? theme.onInk : theme.ink}>
+                  <View style={{ backgroundColor: isCurrent ? theme.cream : theme.field, paddingHorizontal: space(2.5), paddingVertical: 2, borderWidth: 3, borderColor: theme.outline }}>
+                    <T variant="small" color={isCurrent ? theme.onCream : theme.ink}>
                       {isCurrent ? '지금' : '예정'}
                     </T>
                   </View>

@@ -19,7 +19,7 @@ export const KindMark = ({ kind, size = 10, color }: KindMarkProps) => {
   return (
     <Svg width={size} height={size} viewBox="0 0 10 10" accessibilityElementsHidden importantForAccessibility="no">
       {kind === 'run' ? <Circle cx={5} cy={5} r={5} fill={fill} /> : null}
-      {kind === 'weight' ? <Rect x={0.5} y={0.5} width={9} height={9} rx={1.5} fill={fill} /> : null}
+      {kind === 'weight' ? <Rect x={0.5} y={0.5} width={9} height={9} fill={fill} /> : null}
       {kind === 'other' ? <Path d="M5 0.6 9.6 9.4H0.4z" fill={fill} /> : null}
       {kind === 'rest' || kind === undefined ? <Rect x={0.5} y={4} width={9} height={2} rx={1} fill={fill} /> : null}
     </Svg>

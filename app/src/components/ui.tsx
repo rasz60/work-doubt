@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,25 +18,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { KindMark } from '@/components/KindMark';
 import { addDays, formatLongDate, todayString } from '@/lib/date';
-import { fonts, layout, radius, space, useTheme } from '@/theme';
+import { OUTLINE, fonts, layout, radius, space, useTheme } from '@/theme';
 import type { PlanKind, WorkoutKind } from '@/types';
 
 // ── 글자 ───────────────────────────────────────────────
-// 크기 단계: 12 · 14 · 16 · 20 · 28 · 44 · 72. 숫자는 좁은 숫자체
+// 한글 도트 글꼴 Galmuri. 크기 단계: 12 · 14 · 16 · 22 · 28 · 42 · 70 (Galmuri14 는 14의 배수에서 또렷하다)
 
 const VARIANTS = {
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '800', letterSpacing: -0.6 },
-  heading: { fontSize: 20, lineHeight: 26, fontWeight: '700', letterSpacing: -0.3 },
-  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
-  bodyStrong: { fontSize: 16, lineHeight: 24, fontWeight: '600' },
-  label: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
-  caption: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
-  small: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
-  numHero: { fontSize: 72, lineHeight: 72, fontFamily: fonts.numBold, letterSpacing: -1 },
-  numXl: { fontSize: 44, lineHeight: 48, fontFamily: fonts.numBold },
-  numLg: { fontSize: 28, lineHeight: 32, fontFamily: fonts.numBold },
-  numMd: { fontSize: 20, lineHeight: 24, fontFamily: fonts.num },
-  numSm: { fontSize: 16, lineHeight: 20, fontFamily: fonts.num },
+  title: { fontSize: 28, lineHeight: 36, fontFamily: fonts.pxLg },
+  heading: { fontSize: 22, lineHeight: 28, fontFamily: fonts.pxBold },
+  body: { fontSize: 16, lineHeight: 24, fontFamily: fonts.px },
+  bodyStrong: { fontSize: 16, lineHeight: 24, fontFamily: fonts.pxBold },
+  label: { fontSize: 14, lineHeight: 20, fontFamily: fonts.pxBold },
+  caption: { fontSize: 14, lineHeight: 20, fontFamily: fonts.px },
+  small: { fontSize: 12, lineHeight: 16, fontFamily: fonts.pxBold },
+  numHero: { fontSize: 70, lineHeight: 74, fontFamily: fonts.numBold },
+  numXl: { fontSize: 42, lineHeight: 48, fontFamily: fonts.numBold },
+  numLg: { fontSize: 28, lineHeight: 34, fontFamily: fonts.numBold },
+  numMd: { fontSize: 20, lineHeight: 26, fontFamily: fonts.num },
+  numSm: { fontSize: 14, lineHeight: 20, fontFamily: fonts.num },
 } as const satisfies Record<string, TextStyle>;
 
 export type TextVariant = keyof typeof VARIANTS;
@@ -50,7 +51,7 @@ interface TProps {
   children: React.ReactNode;
 }
 
-/** 모든 글자는 이걸로. 변형(variant)이 크기 · 굵기 · 글꼴을 정한다 */
+/** 모든 글자는 이걸로. 변형(variant)이 크기 · 글꼴을 정한다 (도트 글꼴은 굵기를 글꼴 파일로 정한다) */
 export const T = ({ variant = 'body', color, style, numberOfLines, selectable, children }: TProps) => {
   const theme = useTheme();
   const v: TextStyle = VARIANTS[variant];
@@ -59,9 +60,9 @@ export const T = ({ variant = 'body', color, style, numberOfLines, selectable, c
       numberOfLines={numberOfLines}
       selectable={selectable}
       style={[
-        { fontFamily: v.fontFamily ?? fonts.sans, color: color ?? (MUTED.includes(variant) ? theme.muted : theme.ink) },
+        { color: color ?? (MUTED.includes(variant) ? theme.muted : theme.ink), fontWeight: 'normal' },
         v,
-        v.fontFamily ? { fontVariant: ['tabular-nums'] } : null,
+        variant.startsWith('num') ? { fontVariant: ['tabular-nums'] } : null,
         style,
       ]}
     >
@@ -70,13 +71,42 @@ export const T = ({ variant = 'body', color, style, numberOfLines, selectable, c
   );
 };
 
+// ── 하드웨어 부품 ─────────────────────────────────────────
+
+// 키보드 포커스 표시용 표식. 실제 모양은 웹 전역 CSS(RootStyles)에 있다
+export const focusProps: object = Platform.OS === 'web' ? { dataSet: { px: '1' } } : {};
+
+interface HardBoxProps {
+  /** 오른쪽 · 아래 두께(px). 버튼은 아래만, 패널은 둘 다 */
+  dx?: number;
+  dy?: number;
+  /** 눌림: 두께만큼 내려가며 그림자가 사라진다 */
+  pressed?: boolean;
+  /** 두께 색 (기본: 외곽선) */
+  shadow?: string;
+  outerStyle?: StyleProp<ViewStyle>;
+  faceStyle?: StyleProp<ViewStyle>;
+  children?: React.ReactNode;
+}
+
+/** 두께가 있는 면. 아래에 외곽선색 면을 깔고, 앞 면이 눌리면 그 위로 내려앉는다 */
+export const HardBox = ({ dx = 0, dy = 4, pressed = false, shadow, outerStyle, faceStyle, children }: HardBoxProps) => {
+  const theme = useTheme();
+  return (
+    <View style={[{ paddingRight: dx, paddingBottom: dy }, outerStyle]}>
+      <View pointerEvents="none" style={{ position: 'absolute', left: dx, top: dy, right: 0, bottom: 0, backgroundColor: shadow ?? theme.outline }} />
+      <View style={[{ borderWidth: OUTLINE, borderColor: theme.outline, transform: [{ translateX: pressed ? dx : 0 }, { translateY: pressed ? dy : 0 }] }, faceStyle]}>{children}</View>
+    </View>
+  );
+};
+
 // ── 화면 틀 ────────────────────────────────────────────
 
-/** 상태바 영역을 비우고 바탕을 칠한다 (네비게이션 헤더는 쓰지 않는다) */
+/** 상태바 영역을 비우고 바탕을 칠한다 (네비게이션 헤더는 쓰지 않는다). 웹은 오른쪽 위 앱 전환 버튼 자리를 비운다 */
 export const Screen = ({ children }: { children: React.ReactNode }) => {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  return <View style={[styles.screen, { backgroundColor: theme.paper, paddingTop: insets.top + space(2) }]}>{children}</View>;
+  return <View style={[styles.screen, { backgroundColor: theme.paper, paddingTop: Platform.OS === 'web' ? 56 : insets.top + space(2) }]}>{children}</View>;
 };
 
 interface PageProps {
@@ -111,7 +141,7 @@ interface HeadingProps {
 
 /** 탭 화면의 큰 제목 */
 export const Heading = ({ title, overline, caption, right }: HeadingProps) => (
-  <View style={{ gap: space(1), paddingTop: space(3), paddingBottom: space(1) }}>
+  <View style={{ gap: space(1), paddingTop: space(2), paddingBottom: space(1) }}>
     {overline ? <T variant="label">{overline}</T> : null}
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(3) }}>
       <T variant="title" style={{ flex: 1 }} numberOfLines={2}>
@@ -132,25 +162,29 @@ interface HeaderProps {
   right?: React.ReactNode;
 }
 
-/** 쌓인 화면의 윗줄: ‹ 돌아가기 · 제목 · 오른쪽 동작 */
+/** 쌓인 화면의 윗줄: ‹ 돌아가기 · 제목 · 오른쪽 동작. 돌아가기는 두께 있는 작은 버튼 */
 export const Header = ({ title, back = '뒤로', fallback = '/', right }: HeaderProps) => {
   const theme = useTheme();
+  const [pressed, setPressed] = React.useState<boolean>(false);
   return (
-    <View style={{ gap: space(2), paddingTop: space(1), paddingBottom: space(1) }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 40 }}>
+    <View style={{ gap: space(3), paddingTop: space(1), paddingBottom: space(1) }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 }}>
         <Pressable
           onPress={() => (router.canGoBack() ? router.back() : router.replace(fallback as never))}
+          onPressIn={() => setPressed(true)}
+          onPressOut={() => setPressed(false)}
           accessibilityRole="button"
           accessibilityLabel={`${back}`}
-          hitSlop={10}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space(1), opacity: pressed ? 0.5 : 1 })}
+          {...focusProps}
         >
-          <T variant="heading" color={theme.muted} style={{ fontSize: 24, lineHeight: 26, fontWeight: '400' }}>
-            ‹
-          </T>
-          <T variant="bodyStrong" color={theme.muted}>
-            {back}
-          </T>
+          <HardBox dy={3} pressed={pressed} faceStyle={{ minHeight: 41, minWidth: 44, paddingHorizontal: space(3), backgroundColor: theme.face, flexDirection: 'row', alignItems: 'center', gap: space(1.5) }}>
+            <T variant="bodyStrong" style={{ fontSize: 20, lineHeight: 22 }}>
+              ‹
+            </T>
+            <T variant="label" color={theme.ink}>
+              {back}
+            </T>
+          </HardBox>
         </Pressable>
         {right}
       </View>
@@ -162,20 +196,24 @@ export const Header = ({ title, back = '뒤로', fallback = '/', right }: Header
 interface GroupProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** 반전 면 (검은 바탕). 화면마다 한 곳에만 */
+  /** 민트 몸체 면. 화면마다 한 곳, 그 화면의 주된 행동에만 */
   inverse?: boolean;
   /** 안쪽 여백 없이 (Row 목록을 담을 때) */
   flush?: boolean;
 }
 
-/** 묶음: 선 대신 옅은 회색 면으로 나눈다 */
+/** 묶음: 회녹색 LCD 패널(왼쪽 · 위 안쪽 그늘). inverse 는 민트 몸체(위 · 왼쪽 하이라이트) */
 export const Group = ({ children, style, inverse, flush }: GroupProps) => {
   const theme = useTheme();
+  const edge = inverse ? theme.mintLight : theme.sheetShade;
   return (
-    <View
-      style={[
+    <HardBox
+      dx={4}
+      dy={4}
+      outerStyle={{ alignSelf: 'stretch' }}
+      faceStyle={[
         {
-          backgroundColor: inverse ? theme.ink : theme.sheet,
+          backgroundColor: inverse ? theme.mint : theme.sheet,
           borderRadius: radius.group,
           padding: flush ? 0 : space(5),
           paddingVertical: flush ? space(1) : space(5),
@@ -185,8 +223,10 @@ export const Group = ({ children, style, inverse, flush }: GroupProps) => {
         style,
       ]}
     >
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, height: 3, backgroundColor: edge }} />
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: edge }} />
       {children}
-    </View>
+    </HardBox>
   );
 };
 
@@ -196,18 +236,24 @@ interface SectionProps {
   children?: React.ReactNode;
 }
 
-/** 묶음 위 작은 제목 + 오른쪽 링크 */
-export const Section = ({ title, right, children }: SectionProps) => (
-  <View style={{ gap: space(2.5) }}>
-    <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space(3), paddingHorizontal: space(1) }}>
-      <T variant="heading" style={{ flex: 1 }}>
-        {title}
-      </T>
-      {right}
+/** 묶음 위 작은 제목(앞에 크림 칸 하나) + 오른쪽 링크 */
+export const Section = ({ title, right, children }: SectionProps) => {
+  const theme = useTheme();
+  return (
+    <View style={{ gap: space(3) }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space(3), paddingHorizontal: space(1) }}>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
+          <View style={{ width: 12, height: 12, backgroundColor: theme.cream, borderWidth: 3, borderColor: theme.outline, marginTop: 1 }} />
+          <T variant="heading" style={{ flex: 1 }}>
+            {title}
+          </T>
+        </View>
+        {right}
+      </View>
+      {children}
     </View>
-    {children}
-  </View>
-);
+  );
+};
 
 interface RowProps {
   title: string;
@@ -223,7 +269,7 @@ interface RowProps {
   chevron?: boolean;
 }
 
-/** 묶음 안의 한 줄. 누르면 그 항목 화면으로 */
+/** 묶음 안의 한 줄. 누르면 그 항목 화면으로 (눌리는 동안 크림색 칸 · 점선 구분) */
 export const Row = ({ title, meta, left, value, onPress, first, accessibilityLabel, chevron }: RowProps) => {
   const theme = useTheme();
   const content = (
@@ -241,7 +287,7 @@ export const Row = ({ title, meta, left, value, onPress, first, accessibilityLab
       </View>
       {value}
       {(chevron ?? !!onPress) ? (
-        <T variant="heading" color={theme.muted} style={{ fontWeight: '400' }}>
+        <T variant="heading" color={theme.ink}>
           ›
         </T>
       ) : null}
@@ -254,8 +300,9 @@ export const Row = ({ title, meta, left, value, onPress, first, accessibilityLab
     minHeight: 60,
     paddingVertical: space(3),
     paddingHorizontal: space(5),
-    borderTopWidth: first ? 0 : 1,
+    borderTopWidth: first ? 0 : 2,
     borderTopColor: theme.line,
+    borderStyle: 'dotted',
   };
   if (!onPress) return <View style={rowStyle}>{content}</View>;
   return (
@@ -263,7 +310,8 @@ export const Row = ({ title, meta, left, value, onPress, first, accessibilityLab
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
-      style={({ pressed }) => [rowStyle, { opacity: pressed ? 0.55 : 1 }]}
+      {...focusProps}
+      style={({ pressed }) => [rowStyle, { backgroundColor: pressed ? theme.cream : 'transparent' }]}
     >
       {content}
     </Pressable>
@@ -275,7 +323,7 @@ interface MessageProps {
   tone?: 'error' | 'muted' | 'ok';
 }
 
-/** 오류는 붉은 글자 상자, 완료 알림은 회색 상자, 나머지는 회색 글자 한 줄 */
+/** 오류는 붉은 글자 상자, 완료 알림은 LCD 상자, 나머지는 회색 글자 한 줄 */
 export const Message = ({ text, tone = 'muted' }: MessageProps) => {
   const theme = useTheme();
   if (!text) return null;
@@ -284,7 +332,8 @@ export const Message = ({ text, tone = 'muted' }: MessageProps) => {
   return (
     <View
       accessibilityLiveRegion="polite"
-      style={{ backgroundColor: error ? theme.dangerSoft : theme.sheet, borderRadius: radius.box, paddingHorizontal: space(4), paddingVertical: space(3) }}
+      accessibilityRole={error ? 'alert' : undefined}
+      style={{ backgroundColor: error ? theme.dangerSoft : theme.sheet, borderWidth: OUTLINE, borderColor: error ? theme.danger : theme.outline, paddingHorizontal: space(4), paddingVertical: space(3) }}
     >
       <T variant="bodyStrong" color={error ? theme.danger : theme.ink} style={{ fontSize: 14, lineHeight: 20 }}>
         {text}
@@ -313,6 +362,19 @@ interface FieldProps {
   style?: StyleProp<ViewStyle>;
 }
 
+/** 입력 상자 바탕: 안쪽 위 · 왼쪽 그늘이 있는 투입구 모양 */
+const inputBox = (theme: ReturnType<typeof useTheme>, focused: boolean, invalid: boolean, multiline: boolean): ViewStyle => ({
+  flexDirection: 'row',
+  alignItems: multiline ? 'flex-start' : 'center',
+  minHeight: 52,
+  backgroundColor: theme.field,
+  borderRadius: radius.box,
+  borderWidth: OUTLINE,
+  // 포커스는 빨강(켜짐), 오류는 붉은 글자색. 평소에는 3:1 이상 대비의 테두리
+  borderColor: invalid ? theme.danger : focused ? theme.led : theme.border,
+  paddingHorizontal: space(3),
+});
+
 /** 글자 입력 상자 (이름 · 메모 등). 숫자는 NumberInput */
 export const Field = ({
   label,
@@ -334,20 +396,8 @@ export const Field = ({
   const [focused, setFocused] = React.useState<boolean>(false);
   return (
     <View style={[{ gap: space(1.5), minWidth: 0 }, style]}>
-      {label ? <T variant="label">{label}</T> : null}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: multiline ? 'flex-start' : 'center',
-          minHeight: 52,
-          backgroundColor: theme.paper,
-          borderRadius: radius.box,
-          borderWidth: focused || invalid ? 2 : 1,
-          borderColor: invalid ? theme.danger : focused ? theme.ink : theme.border,
-          // 테두리가 두꺼워져도 글자가 움직이지 않게 안쪽 여백으로 메운다
-          paddingHorizontal: space(4) - (focused || invalid ? 1 : 0),
-        }}
-      >
+      {label ? <T variant="label" color={theme.ink}>{label}</T> : null}
+      <View style={inputBox(theme, focused, invalid, multiline)}>
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -368,7 +418,7 @@ export const Field = ({
               minWidth: 0,
               color: theme.ink,
               fontSize: 16, // 16px 미만이면 iOS 웹이 확대한다
-              fontFamily: fonts.sans,
+              fontFamily: fonts.px,
               paddingVertical: space(3),
               minHeight: multiline ? 96 : undefined,
               textAlignVertical: multiline ? 'top' : 'center',
@@ -376,9 +426,9 @@ export const Field = ({
             { outlineWidth: 0 },
           ]}
         />
-        {unit ? <T variant="label" style={{ marginLeft: space(1) }}>{unit}</T> : null}
+        {unit ? <T variant="label" color={theme.ink} style={{ marginLeft: space(1) }}>{unit}</T> : null}
       </View>
-      {hint ? <T variant="small" style={{ fontWeight: '400' }}>{hint}</T> : null}
+      {hint ? <T variant="small" style={{ fontFamily: fonts.px }}>{hint}</T> : null}
     </View>
   );
 };
@@ -397,28 +447,30 @@ interface NumberInputProps {
   style?: StyleProp<ViewStyle>;
 }
 
-/** 밑줄 위 큰 숫자 하나. 거리 · 시간 · 체중처럼 그 화면의 핵심 숫자를 받는다 */
+/** LCD 창에 뜬 큰 숫자 하나. 거리 · 시간 · 체중처럼 그 화면의 핵심 숫자를 받는다 */
 export const NumberInput = ({ label, value, onChangeText, unit, placeholder, decimal = true, size = 'large', invalid, hint, style }: NumberInputProps) => {
   const theme = useTheme();
   const [focused, setFocused] = React.useState<boolean>(false);
   const large = size === 'large';
   return (
-    <View style={[{ gap: space(1), minWidth: 0 }, style]}>
-      <T variant="label">{label}</T>
+    <View style={[{ gap: space(1.5), minWidth: 0 }, style]}>
+      <T variant="label" color={theme.ink}>{label}</T>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'baseline',
           gap: space(1.5),
-          borderBottomWidth: 2,
-          borderBottomColor: invalid ? theme.danger : focused ? theme.ink : theme.border,
+          paddingHorizontal: space(3),
+          backgroundColor: theme.sheet,
+          borderWidth: OUTLINE,
+          borderColor: invalid ? theme.danger : focused ? theme.led : theme.outline,
         }}
       >
         <TextInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={theme.border}
+          placeholderTextColor={theme.line}
           keyboardType={decimal ? 'decimal-pad' : 'numbers-and-punctuation'}
           accessibilityLabel={unit ? `${label} (${unit})` : label}
           onFocus={() => setFocused(true)}
@@ -429,17 +481,17 @@ export const NumberInput = ({ label, value, onChangeText, unit, placeholder, dec
               minWidth: 0,
               color: theme.ink,
               fontFamily: fonts.numBold,
-              fontSize: large ? 44 : 28,
-              lineHeight: large ? 52 : 34,
+              fontSize: large ? 42 : 28,
+              lineHeight: large ? 52 : 36,
               paddingVertical: space(1),
               fontVariant: ['tabular-nums'],
             },
             { outlineWidth: 0 },
           ]}
         />
-        {unit ? <T variant="label" style={{ paddingBottom: space(2) }}>{unit}</T> : null}
+        {unit ? <T variant="label" color={theme.ink} style={{ paddingBottom: space(2) }}>{unit}</T> : null}
       </View>
-      {hint ? <T variant="small" color={invalid ? theme.danger : theme.muted} style={{ fontWeight: '400' }}>{hint}</T> : null}
+      {hint ? <T variant="small" color={invalid ? theme.danger : theme.muted} style={{ fontFamily: fonts.px }}>{hint}</T> : null}
     </View>
   );
 };
@@ -455,6 +507,46 @@ interface StepperProps {
   placeholder?: string;
 }
 
+/** 원형 키: 주황 몸통 + 아래 두께. 누르면 내려앉는다 */
+export const RoundKey = ({ size = 44, selected, onPress, accessibilityLabel, children }: { size?: number; selected?: boolean; onPress: () => void; accessibilityLabel: string; children?: React.ReactNode }) => {
+  const theme = useTheme();
+  const [pressed, setPressed] = React.useState<boolean>(false);
+  const depth = 3;
+  const body = selected ? theme.cream : theme.key;
+  const shade = selected ? theme.creamShade : theme.keyShade;
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected: !!selected }}
+      {...focusProps}
+      style={{ width: size, height: size + depth, borderRadius: size }}
+    >
+      <View style={{ position: 'absolute', top: depth, left: 0, width: size, height: size, borderRadius: size, backgroundColor: theme.outline }} />
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size,
+          borderWidth: OUTLINE,
+          borderColor: theme.outline,
+          backgroundColor: body,
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          transform: [{ translateY: pressed ? depth : 0 }],
+        }}
+      >
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 6, backgroundColor: shade }} />
+        {children}
+      </View>
+    </Pressable>
+  );
+};
+
 /** − 숫자 + . 횟수 · 세트 · 무게처럼 조금씩 바꾸는 값. 가운데 숫자는 직접 고칠 수도 있다 */
 export const Stepper = ({ label, value, onChange, min = 0, step = 1, unit, placeholder }: StepperProps) => {
   const theme = useTheme();
@@ -466,47 +558,31 @@ export const Stepper = ({ label, value, onChange, min = 0, step = 1, unit, place
     onChange(String(next));
   };
   const btn = (d: number, glyph: string, a11y: string) => (
-    <Pressable
-      onPress={() => move(d)}
-      accessibilityRole="button"
-      accessibilityLabel={a11y}
-      hitSlop={4}
-      style={({ pressed }) => ({
-        width: 44,
-        height: 44,
-        borderRadius: radius.pill,
-        backgroundColor: theme.paper,
-        borderWidth: 1,
-        borderColor: theme.border,
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: pressed ? 0.5 : 1,
-      })}
-    >
-      <T variant="heading" style={{ fontWeight: '500' }}>
+    <RoundKey onPress={() => move(d)} accessibilityLabel={a11y}>
+      <T variant="heading" color={theme.outline} style={{ fontSize: 24, lineHeight: 26 }}>
         {glyph}
       </T>
-    </Pressable>
+    </RoundKey>
   );
   return (
     <View style={{ gap: space(1.5), minWidth: 0, flex: 1 }}>
-      <T variant="small">{label}</T>
+      <T variant="small" color={theme.ink}>{label}</T>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(1.5) }}>
         {btn(-1, '−', `${label} 줄이기`)}
-        <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
+        <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 2, backgroundColor: theme.sheet, borderWidth: OUTLINE, borderColor: theme.outline, paddingVertical: 2 }}>
           <TextInput
             value={value}
             onChangeText={(v) => onChange(v.replace(/[^0-9.,]/g, ''))}
             keyboardType="decimal-pad"
             placeholder={placeholder}
-            placeholderTextColor={theme.border}
+            placeholderTextColor={theme.line}
             accessibilityLabel={label}
             style={[
-              { minWidth: 28, maxWidth: '100%', textAlign: 'center', color: theme.ink, fontSize: 24, fontFamily: fonts.numBold, paddingVertical: 0 },
+              { minWidth: 28, maxWidth: '100%', textAlign: 'center', color: theme.ink, fontSize: 28, lineHeight: 34, fontFamily: fonts.numBold, paddingVertical: 0 },
               { outlineWidth: 0 },
             ]}
           />
-          {unit ? <T variant="small">{unit}</T> : null}
+          {unit ? <T variant="small" color={theme.ink}>{unit}</T> : null}
         </View>
         {btn(1, '+', `${label} 늘리기`)}
       </View>
@@ -521,24 +597,13 @@ interface DatePickerProps {
   max?: string;
 }
 
-/** ‹ 11월 6일 (목) › — 작게. 오늘이 아니면 '오늘로' */
+/** ‹ 11월 6일 (목) › — 작은 두께 버튼 둘. 오늘이 아니면 '오늘로' */
 export const DatePicker = ({ value, onChange, max }: DatePickerProps) => {
   const theme = useTheme();
   const today = todayString();
   const canNext = !max || value < max;
   const arrow = (d: number, glyph: string, a11y: string, enabled: boolean) => (
-    <Pressable
-      onPress={() => enabled && onChange(addDays(value, d))}
-      disabled={!enabled}
-      accessibilityRole="button"
-      accessibilityLabel={a11y}
-      hitSlop={6}
-      style={({ pressed }) => ({ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', opacity: !enabled ? 0.25 : pressed ? 0.5 : 1 })}
-    >
-      <T variant="heading" style={{ fontWeight: '400' }}>
-        {glyph}
-      </T>
-    </Pressable>
+    <SmallKey glyph={glyph} onPress={() => enabled && onChange(addDays(value, d))} disabled={!enabled} accessibilityLabel={a11y} />
   );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(1) }}>
@@ -548,7 +613,7 @@ export const DatePicker = ({ value, onChange, max }: DatePickerProps) => {
       </T>
       {arrow(1, '›', '하루 뒤', canNext)}
       {value !== today ? (
-        <Pressable onPress={() => onChange(today)} accessibilityRole="button" hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+        <Pressable onPress={() => onChange(today)} accessibilityRole="button" hitSlop={6} {...focusProps} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, minHeight: 44, justifyContent: 'center' })}>
           <T variant="label" color={theme.ink} style={{ textDecorationLine: 'underline' }}>
             오늘로
           </T>
@@ -558,45 +623,65 @@ export const DatePicker = ({ value, onChange, max }: DatePickerProps) => {
   );
 };
 
+const SmallKey = ({ glyph, onPress, disabled, accessibilityLabel }: { glyph: string; onPress: () => void; disabled?: boolean; accessibilityLabel: string }) => {
+  const theme = useTheme();
+  const [pressed, setPressed] = React.useState<boolean>(false);
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: !!disabled }}
+      {...focusProps}
+      style={{ opacity: disabled ? 0.4 : 1 }}
+    >
+      <HardBox dy={3} pressed={pressed && !disabled} faceStyle={{ width: 44, height: 41, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.face }}>
+        <T variant="heading">{glyph}</T>
+      </HardBox>
+    </Pressable>
+  );
+};
+
 // ── 버튼 ───────────────────────────────────────────────
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  /** primary = 검은 면, secondary = 테두리, inverse = 검은 면 위에 놓는 흰 버튼 */
+  /** primary · inverse = 크림 면, secondary = 기본 면 */
   variant?: 'primary' | 'secondary' | 'inverse';
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
+/** 두께 4px. 누르면 내려앉고 그림자가 사라진다. 비활성은 줄무늬 느낌으로 흐리게 */
 export const Button = ({ title, onPress, variant = 'primary', disabled = false, style }: ButtonProps) => {
   const theme = useTheme();
-  const fill = variant === 'primary' ? theme.ink : variant === 'inverse' ? theme.onInk : 'transparent';
-  const color = variant === 'primary' ? theme.onInk : variant === 'inverse' ? theme.ink : theme.ink;
+  const [pressed, setPressed] = React.useState<boolean>(false);
+  const fill = variant === 'secondary' ? theme.face : theme.cream;
+  const color = variant === 'secondary' ? theme.ink : theme.onCream;
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
-      style={({ pressed }) => [
-        {
-          height: 56,
-          borderRadius: radius.box,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingHorizontal: space(5),
-          backgroundColor: fill,
-          borderWidth: variant === 'secondary' ? 1.5 : 0,
-          borderColor: theme.ink,
-          opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
-        },
-        style,
-      ]}
+      {...focusProps}
+      style={[{ opacity: disabled ? 0.55 : 1 }, style]}
     >
-      <T variant="bodyStrong" color={color} style={{ fontSize: 17, fontWeight: '700' }}>
-        {title}
-      </T>
+      <HardBox
+        dy={4}
+        pressed={pressed && !disabled}
+        faceStyle={{ minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space(5), backgroundColor: fill, borderRadius: radius.box }}
+      >
+        <T variant="bodyStrong" color={color} style={{ fontSize: 17 }}>
+          {title}
+        </T>
+      </HardBox>
     </Pressable>
   );
 };
@@ -619,16 +704,17 @@ export const TextButton = ({ title, onPress, tone = 'default', disabled = false,
       disabled={disabled}
       hitSlop={8}
       accessibilityRole="button"
-      style={({ pressed }) => ({ opacity: disabled ? 0.4 : pressed ? 0.5 : 1, paddingVertical: space(2), minHeight: 40, justifyContent: 'center' })}
+      {...focusProps}
+      style={({ pressed }) => ({ opacity: disabled ? 0.4 : pressed ? 0.5 : 1, paddingVertical: space(2), minHeight: 44, justifyContent: 'center' })}
     >
-      <T variant="label" color={c} style={{ fontSize: 15 }}>
+      <T variant="label" color={c} style={{ fontSize: 15, textDecorationLine: 'underline' }}>
         {title}
       </T>
     </Pressable>
   );
 };
 
-/** 화면 아래 고정 영역 (저장 버튼). Page 에 footerSpace 를 함께 준다 */
+/** 화면 아래 고정 영역 (저장 버튼): 민트 몸체 띠. Page 에 footerSpace 를 함께 준다 */
 export const StickyFooter = ({ children }: { children: React.ReactNode }) => {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -639,14 +725,15 @@ export const StickyFooter = ({ children }: { children: React.ReactNode }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: theme.paper,
-        borderTopWidth: 1,
-        borderTopColor: theme.line,
+        backgroundColor: theme.mint,
+        borderTopWidth: OUTLINE,
+        borderTopColor: theme.outline,
         paddingTop: space(3),
         paddingBottom: insets.bottom + space(3),
         paddingHorizontal: layout.gutter,
       }}
     >
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 3, backgroundColor: theme.mintLight }} />
       <View style={{ width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center', gap: space(2) }}>{children}</View>
     </View>
   );
@@ -660,12 +747,12 @@ interface SegmentedProps<V extends string> {
   onChange: (value: V) => void;
 }
 
-/** 화면 안의 보기 전환. 고른 칸만 검게 */
+/** 화면 안의 보기 전환. 고른 칸은 크림색 + 빨간 불 */
 export const Segmented = <V extends string>({ options, value, onChange }: SegmentedProps<V>) => {
   const theme = useTheme();
   return (
-    <View accessibilityRole="tablist" style={{ flexDirection: 'row', padding: 3, borderRadius: radius.pill, backgroundColor: theme.sheet }}>
-      {options.map((option) => {
+    <View accessibilityRole="tablist" style={{ flexDirection: 'row', borderWidth: OUTLINE, borderColor: theme.outline, backgroundColor: theme.face }}>
+      {options.map((option, i) => {
         const selected = option.value === value;
         return (
           <Pressable
@@ -673,17 +760,22 @@ export const Segmented = <V extends string>({ options, value, onChange }: Segmen
             onPress={() => onChange(option.value)}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
+            {...focusProps}
             style={{
               flex: 1,
-              height: 36,
-              borderRadius: radius.pill,
+              minHeight: 44,
               alignItems: 'center',
               justifyContent: 'center',
-              paddingHorizontal: space(3),
-              backgroundColor: selected ? theme.ink : 'transparent',
+              flexDirection: 'row',
+              gap: space(1.5),
+              paddingHorizontal: space(1),
+              borderLeftWidth: i === 0 ? 0 : OUTLINE,
+              borderLeftColor: theme.outline,
+              backgroundColor: selected ? theme.cream : 'transparent',
             }}
           >
-            <T variant="label" color={selected ? theme.onInk : theme.muted}>
+            {selected ? <View style={{ width: 6, height: 6, backgroundColor: theme.led }} /> : null}
+            <T variant="label" color={selected ? theme.onCream : theme.ink} numberOfLines={1} style={{ flexShrink: 1, fontSize: 13 }}>
               {option.label}
             </T>
           </Pressable>
@@ -700,31 +792,29 @@ interface ChipProps {
   left?: React.ReactNode;
 }
 
-/** 고르기 칩. 고른 칩은 검게 */
+/** 고르기 칩: 두께 있는 작은 버튼. 고른 칩은 크림색 + 눌린 채로 */
 export const Chip = ({ label, selected = false, onPress, left }: ChipProps) => {
   const theme = useTheme();
+  const [pressed, setPressed] = React.useState<boolean>(false);
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={({ pressed }) => ({
-        height: 40,
-        paddingHorizontal: space(4),
-        borderRadius: radius.pill,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: space(2),
-        borderWidth: 1,
-        borderColor: selected ? theme.ink : theme.border,
-        backgroundColor: selected ? theme.ink : theme.paper,
-        opacity: pressed ? 0.7 : 1,
-      })}
+      {...focusProps}
     >
-      {left}
-      <T variant="label" color={selected ? theme.onInk : theme.ink} style={{ fontSize: 15 }}>
-        {label}
-      </T>
+      <HardBox
+        dy={3}
+        pressed={pressed || selected}
+        faceStyle={{ minHeight: 41, paddingHorizontal: space(4), flexDirection: 'row', alignItems: 'center', gap: space(2), backgroundColor: selected ? theme.cream : theme.face }}
+      >
+        {left}
+        <T variant="label" color={selected ? theme.onCream : theme.ink} style={{ fontSize: 15 }}>
+          {label}
+        </T>
+      </HardBox>
     </Pressable>
   );
 };
@@ -739,7 +829,7 @@ interface KindChipsProps<V extends WorkoutKind | PlanKind> {
 export const KindChips = <V extends WorkoutKind | PlanKind>({ options, value, onChange }: KindChipsProps<V>) => {
   const theme = useTheme();
   return (
-    <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(2) }}>
+    <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(2.5), paddingBottom: 3 }}>
       {options.map((o) => {
         const selected = o.value === value;
         return (
@@ -748,7 +838,7 @@ export const KindChips = <V extends WorkoutKind | PlanKind>({ options, value, on
             label={o.label}
             selected={selected}
             onPress={() => onChange(o.value)}
-            left={<KindMark kind={o.value} size={9} color={selected ? theme.onInk : theme.ink} />}
+            left={<KindMark kind={o.value} size={9} color={selected ? theme.onCream : theme.ink} />}
           />
         );
       })}
@@ -773,7 +863,7 @@ export const Stat = ({ label, value, unit, sub }: StatProps) => (
       <T variant="numLg">{value}</T>
       {unit ? <T variant="small">{unit}</T> : null}
     </View>
-    {sub ? <T variant="small" style={{ fontWeight: '400' }}>{sub}</T> : null}
+    {sub ? <T variant="small" style={{ fontFamily: fonts.px }}>{sub}</T> : null}
   </View>
 );
 
@@ -783,20 +873,37 @@ interface ProgressBarProps {
   muted?: boolean;
 }
 
+const CELLS = 20;
+
+/** 칸으로 채우는 막대 (20칸). 기준선은 빨간 표식 */
 export const ProgressBar = ({ value, marker, muted }: ProgressBarProps) => {
   const theme = useTheme();
   const clamp = (n: number): number => Math.max(0, Math.min(1, n));
+  const filled = value > 0 ? Math.max(1, Math.round(clamp(value) * CELLS)) : 0;
+  const markCell = marker !== undefined && marker > 0 && marker < 1 ? Math.min(CELLS - 1, Math.round(clamp(marker) * CELLS)) : -1;
   return (
-    <View style={{ height: 8, borderRadius: radius.pill, backgroundColor: theme.line, position: 'relative' }}>
-      <View style={{ width: `${clamp(value) * 100}%`, height: '100%', borderRadius: radius.pill, backgroundColor: muted ? theme.muted : theme.ink }} />
-      {marker !== undefined && marker > 0 && marker < 1 ? (
-        <View style={{ position: 'absolute', left: `${clamp(marker) * 100}%`, top: -5, bottom: -5, width: 2, marginLeft: -1, backgroundColor: theme.ink }} />
-      ) : null}
+    <View
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(clamp(value) * 100) }}
+      style={{ flexDirection: 'row', gap: 2, padding: 3, borderWidth: OUTLINE, borderColor: theme.outline, backgroundColor: theme.paper }}
+    >
+      {Array.from({ length: CELLS }, (_, i) => (
+        <View
+          key={i}
+          style={{
+            flex: 1,
+            height: 12,
+            backgroundColor: i < filled ? (muted ? theme.muted : theme.petInk) : theme.sheetShade,
+            borderBottomWidth: i === markCell ? 3 : 0,
+            borderBottomColor: theme.led,
+          }}
+        />
+      ))}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, paddingHorizontal: layout.gutter },
-  page: { gap: space(6), paddingBottom: space(12), width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center' },
+  page: { gap: space(6), paddingBottom: space(12), paddingRight: 4, width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center' },
 });

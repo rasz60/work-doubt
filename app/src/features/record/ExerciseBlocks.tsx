@@ -111,7 +111,9 @@ export const ExerciseBlocks = ({ blocks, onChange, suggestions }: ExerciseBlocks
                         minHeight: 44,
                         paddingHorizontal: space(3),
                         borderRadius: radius.box,
-                        backgroundColor: theme.paper,
+                        backgroundColor: theme.field,
+                        borderWidth: 3,
+                        borderColor: theme.outline,
                         opacity: pressed ? 0.6 : 1,
                       })}
                     >
@@ -125,7 +127,7 @@ export const ExerciseBlocks = ({ blocks, onChange, suggestions }: ExerciseBlocks
                 return (
                   <View
                     key={rowIndex}
-                    style={{ gap: space(3), padding: space(3), borderRadius: radius.box, backgroundColor: theme.paper, borderWidth: 1.5, borderColor: theme.ink }}
+                    style={{ gap: space(3), padding: space(3), borderRadius: radius.box, backgroundColor: theme.field, borderWidth: 3, borderColor: theme.outline }}
                   >
                     <View style={{ flexDirection: 'row', gap: space(2) }}>
                       <Stepper label="무게" unit="kg" value={row.weight} step={2.5} placeholder="맨몸" onChange={(v) => updateRow(index, rowIndex, { weight: v })} />

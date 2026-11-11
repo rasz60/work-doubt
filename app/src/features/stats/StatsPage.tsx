@@ -1,6 +1,6 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
 
+import { Loading } from '@/components/Pixel';
 import { Header, Message, Page, Screen, T } from '@/components/ui';
 import { useTheme } from '@/theme';
 
@@ -24,7 +24,7 @@ export const StatsPage = ({ title, caption, back = '오늘', fallback = '/', loa
         <Header back={back} fallback={fallback} title={title} />
         {caption ? <T variant="caption">{caption}</T> : null}
         <Message text={error ?? ''} tone="error" />
-        {loading ? <ActivityIndicator color={theme.ink} /> : children}
+        {loading ? <Loading /> : children}
       </Page>
     </Screen>
   );

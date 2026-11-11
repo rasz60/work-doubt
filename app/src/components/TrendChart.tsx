@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Line, Path, Rect } from 'react-native-svg';
 
 import { fonts, space, useTheme } from '@/theme';
 import type { MetricPoint, SeriesStats } from '@/types';
@@ -25,7 +25,7 @@ interface Scaled {
   measuredAt: string;
 }
 
-const PADDING = { top: 16, right: 16, bottom: 22, left: 16 } as const;
+const PADDING = { top: 16, right: 16, bottom: 14, left: 16 } as const;
 
 /**
  * TrendChart 는 지표 1종의 변동폭을 선 하나로 보여준다.
@@ -46,7 +46,7 @@ export const TrendChart = ({
   const show = format ?? ((value: number): string => `${value.toFixed(1)}${unit}`);
   const showDelta = formatDelta ?? ((delta: number): string => `${delta > 0 ? '+' : ''}${delta.toFixed(1)}${unit}`);
   const theme = useTheme();
-  const stroke = theme.ink;
+  const stroke = theme.petInk;
   const [selected, setSelected] = useState<number | null>(null);
 
   const innerWidth = width - PADDING.left - PADDING.right;
@@ -113,40 +113,33 @@ export const TrendChart = ({
         onResponderMove={(event) => pickNearest(event.nativeEvent.locationX)}
       >
       <Svg width={width} height={height}>
-        {/* 기준선은 데이터보다 뒤로 물러나 있어야 한다. */}
-        <Line
-          x1={PADDING.left}
-          y1={PADDING.top + innerHeight}
-          x2={PADDING.left + innerWidth}
-          y2={PADDING.top + innerHeight}
-          stroke={theme.line}
-          strokeWidth={1}
-        />
+        {/* 기준선과 눈금선은 데이터보다 뒤로 물러나 있어야 한다. 점선 3줄 = LCD 눈금 */}
+        {[0, 1, 2].map((i) => (
+          <Line
+            key={i}
+            x1={PADDING.left}
+            y1={PADDING.top + (innerHeight * i) / 2}
+            x2={PADDING.left + innerWidth}
+            y2={PADDING.top + (innerHeight * i) / 2}
+            stroke={theme.line}
+            strokeWidth={i === 2 ? 3 : 1}
+            strokeDasharray={i === 2 ? undefined : '3,4'}
+          />
+        ))}
 
-        <Path d={path} stroke={stroke} strokeWidth={2.5} strokeLinecap="round" fill="none" strokeLinejoin="round" />
+        {/* 각진 선 + 네모 점: 도트 LCD 느낌 */}
+        <Path d={path} stroke={stroke} strokeWidth={3} strokeLinecap="butt" fill="none" strokeLinejoin="miter" />
+        {points.length <= 24
+          ? points.map((p, i) => <Rect key={i} x={p.x - 3} y={p.y - 3} width={6} height={6} fill={stroke} />)
+          : null}
 
-        {/* 마지막 점만 상시 표시하고, 나머지는 선택 시에만 강조한다. */}
-        <Circle
-          cx={points[points.length - 1]?.x}
-          cy={points[points.length - 1]?.y}
-          r={4}
-          fill={stroke}
-          stroke={theme.sheet}
-          strokeWidth={2}
-        />
+        {/* 마지막 점은 빨간 불(현재), 선택한 점은 큰 네모로 강조한다. */}
+        <Rect x={(points[points.length - 1]?.x ?? 0) - 5} y={(points[points.length - 1]?.y ?? 0) - 5} width={10} height={10} fill={theme.led} stroke={theme.outline} strokeWidth={2} />
 
         {active && (
           <>
-            <Line
-              x1={active.x}
-              y1={PADDING.top}
-              x2={active.x}
-              y2={PADDING.top + innerHeight}
-              stroke={theme.muted}
-              strokeWidth={1}
-              strokeDasharray="2,3"
-            />
-            <Circle cx={active.x} cy={active.y} r={5} fill={theme.sheet} stroke={stroke} strokeWidth={2} />
+            <Line x1={active.x} y1={PADDING.top} x2={active.x} y2={PADDING.top + innerHeight} stroke={theme.muted} strokeWidth={2} strokeDasharray="3,4" />
+            <Rect x={active.x - 6} y={active.y - 6} width={12} height={12} fill={theme.cream} stroke={theme.outline} strokeWidth={3} />
           </>
         )}
       </Svg>
@@ -178,10 +171,10 @@ const createStyles = (theme: ReturnType<typeof useTheme>) =>
     // 카드 안에 들어가므로 테두리 없이 제목 · 그래프 · 처음/마지막 값만
     card: { gap: space(2) },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: space(3) },
-    title: { color: theme.muted, fontSize: 13, lineHeight: 18, fontWeight: '600', fontFamily: fonts.sans, flex: 1 },
+    title: { color: theme.ink, fontSize: 14, lineHeight: 20, fontFamily: fonts.pxBold, flex: 1 },
     delta: { fontSize: 28, lineHeight: 32, fontFamily: fonts.numBold, fontVariant: ['tabular-nums'] },
     footer: { flexDirection: 'row', justifyContent: 'space-between' },
-    axisLabel: { color: theme.muted, fontSize: 13, fontFamily: fonts.num, fontVariant: ['tabular-nums'] },
-    selectedLabel: { color: theme.ink, fontSize: 13, fontFamily: fonts.numBold, fontVariant: ['tabular-nums'] },
-    empty: { color: theme.muted, fontSize: 13, lineHeight: 19, fontFamily: fonts.sans },
+    axisLabel: { color: theme.muted, fontSize: 14, fontFamily: fonts.num, fontVariant: ['tabular-nums'] },
+    selectedLabel: { color: theme.ink, fontSize: 14, fontFamily: fonts.numBold, fontVariant: ['tabular-nums'] },
+    empty: { color: theme.muted, fontSize: 14, lineHeight: 20, fontFamily: fonts.px },
   });

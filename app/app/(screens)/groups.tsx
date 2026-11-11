@@ -76,7 +76,7 @@ const Groups = () => {
               <T variant="heading" style={{ flex: 1 }} numberOfLines={1}>
                 {g.name}
               </T>
-              <View style={{ backgroundColor: theme.paper, borderRadius: radius.pill, paddingHorizontal: space(3), paddingVertical: space(1) }}>
+              <View style={{ backgroundColor: theme.field, borderWidth: 3, borderColor: theme.outline, paddingHorizontal: space(3), paddingVertical: space(1) }}>
                 <T variant="numSm" selectable>
                   {g.invite_code}
                 </T>

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 
+import { Loading } from '@/components/Pixel';
 import { Button, DatePicker, Field, Group, Header, Message, Page, Row, Screen, StickyFooter, T, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { usePlanDraft } from '@/features/record/PlanDraftContext';
@@ -45,7 +46,7 @@ const PlanOverview = () => {
           right={plans.length > 0 ? <TextButton title="지난 계획" onPress={() => router.push('/plan/history')} /> : null}
         />
 
-        {loading ? <ActivityIndicator color={theme.ink} /> : null}
+        {loading ? <Loading /> : null}
         <Message text={loadError} tone="error" />
 
         <Group flush>
