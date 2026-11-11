@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, RefreshControl, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { ActivityGrid, describeSession } from '@/components/ActivityGrid';
 import { KindMark } from '@/components/KindMark';
-import { Button, Group, Heading, Loading, Message, Page, Row, Screen, Section, T, TextButton } from '@/components/ui';
+import { Button, Group, Heading, Message, Page, Row, Screen, Section, T, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { appleHealthSupported, syncAppleHealth } from '@/features/health/appleHealth';
 import { useCalendar } from '@/features/calendar/useCalendar';
@@ -60,7 +60,7 @@ const Today = () => {
         <Heading overline={`${formatLongDate(today)}${user?.display_name ? ` · ${user.display_name}` : ''}`} title={title} />
         <Message text={error || summaryError} tone="error" />
 
-        {loading && !todayDay ? <Loading /> : null}
+        {loading && !todayDay ? <ActivityIndicator color={theme.ink} /> : null}
         {todayDay ? <TodayCard day={todayDay} planned={planned} onSaved={refresh} /> : null}
 
         {days.length > 0 ? <ThisWeek days={days} today={today} noPlan={!!summary && !summary.current_plan_id} /> : null}
@@ -130,7 +130,7 @@ const TodayCard = ({ day, planned, onSaved }: TodayCardProps) => {
               onPress={() => router.push({ pathname: '/log', params: { id: s.id, date: s.performed_on } })}
               accessibilityRole="button"
               accessibilityLabel={`${describeSession(s)} 고치기`}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space(3), minHeight: 44, opacity: pressed ? 0.6 : 1 })}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space(3), opacity: pressed ? 0.6 : 1 })}
             >
               <KindMark kind={s.kind} size={10} color={theme.onInk} />
               <T variant="heading" color={theme.onInk} style={{ flex: 1 }} numberOfLines={2}>
@@ -156,7 +156,6 @@ const TodayCard = ({ day, planned, onSaved }: TodayCardProps) => {
           onPress={() => router.push({ pathname: '/log', params: { id: saved.id, date: saved.performed_on } })}
           accessibilityRole="button"
           accessibilityLabel="방금 기록 고치기"
-          hitSlop={10}
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
           <T variant="bodyStrong" color={theme.onInk}>
@@ -277,7 +276,7 @@ const ThisWeek = ({ days, today, noPlan }: { days: CalendarDay[]; today: string;
     >
       <ActivityGrid mode="strip" days={days} today={today} onSelect={(date) => router.push({ pathname: '/calendar', params: { date } })} />
       {noPlan ? (
-        <Pressable onPress={() => router.push('/plan')} accessibilityRole="button" hitSlop={12} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
+        <Pressable onPress={() => router.push('/plan')} accessibilityRole="button" style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
           <T variant="caption">
             주간 계획이 없어 칸이 비어 있어요.{' '}
             <T variant="caption" color={theme.ink} style={{ textDecorationLine: 'underline', fontWeight: '600' }}>

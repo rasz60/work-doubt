@@ -1,24 +1,19 @@
 import React from 'react';
 import {
-  ActivityIndicator,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
-  useWindowDimensions,
   type KeyboardTypeOptions,
   type RefreshControlProps,
   type StyleProp,
-  type TextInputProps,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 
 import { KindMark } from '@/components/KindMark';
 import { addDays, formatLongDate, todayString } from '@/lib/date';
@@ -75,61 +70,7 @@ export const T = ({ variant = 'body', color, style, numberOfLines, selectable, c
   );
 };
 
-// ── 아이콘 ─────────────────────────────────────────────
-// 탭 아이콘과 같은 선(24 격자, 2px, 둥근 끝). 글자 기호(‹ › + −)는 글꼴마다 모양 · 높이가 달라 쓰지 않는다
-
-const GLYPHS = {
-  left: 'M15 5l-7 7 7 7',
-  right: 'M9 5l7 7-7 7',
-  plus: 'M12 5v14M5 12h14',
-  minus: 'M5 12h14',
-} as const;
-
-interface GlyphProps {
-  name: keyof typeof GLYPHS;
-  size?: number;
-  color?: string;
-}
-
-/** 선 아이콘. 옆의 글자나 버튼의 accessibilityLabel 이 뜻을 전하므로 읽기 도구에서는 숨긴다 */
-export const Glyph = ({ name, size = 20, color }: GlyphProps) => {
-  const theme = useTheme();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessibilityElementsHidden importantForAccessibility="no">
-      <Path d={GLYPHS[name]} stroke={color ?? theme.ink} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-};
-
 // ── 화면 틀 ────────────────────────────────────────────
-
-/**
- * 웹 배포본은 포털의 앱 전환 버튼(44px, 오른쪽 위 12px)이 화면 위에 떠 있다.
- * 본문이 화면 폭을 다 쓰는 좁은 화면에서는 윗줄 오른쪽을 그만큼 비워 겹치지 않게 한다
- */
-const useSwitcherInset = (): number => {
-  const { width } = useWindowDimensions();
-  return Platform.OS === 'web' && width < layout.maxWidth + 120 ? 44 : 0;
-};
-
-/** 불러오는 중. 화면 전체를 기다릴 때는 LoadingScreen */
-export const Loading = ({ label = '불러오는 중' }: { label?: string }) => {
-  const theme = useTheme();
-  return (
-    <View accessibilityRole="progressbar" accessibilityLabel={label} style={{ paddingVertical: space(6), alignItems: 'center' }}>
-      <ActivityIndicator color={theme.ink} />
-    </View>
-  );
-};
-
-/** 로그인 확인처럼 화면에 아직 아무것도 없을 때: 가운데에 하나만 */
-export const LoadingScreen = () => (
-  <Screen>
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Loading />
-    </View>
-  </Screen>
-);
 
 /** 상태바 영역을 비우고 바탕을 칠한다 (네비게이션 헤더는 쓰지 않는다) */
 export const Screen = ({ children }: { children: React.ReactNode }) => {
@@ -153,8 +94,6 @@ export const Page = ({ children, refreshControl, scrollRef, footerSpace }: PageP
     style={{ flex: 1 }}
     contentContainerStyle={[styles.page, footerSpace ? { paddingBottom: space(28) } : null]}
     keyboardShouldPersistTaps="handled"
-    // iOS: 키보드가 올라오면 그만큼 아래를 비워 입력 칸이 가려지지 않게 한다
-    automaticallyAdjustKeyboardInsets
     showsVerticalScrollIndicator={false}
     refreshControl={refreshControl}
   >
@@ -171,25 +110,22 @@ interface HeadingProps {
 }
 
 /** 탭 화면의 큰 제목 */
-export const Heading = ({ title, overline, caption, right }: HeadingProps) => {
-  const inset = useSwitcherInset();
-  return (
-    <View style={{ gap: space(1), paddingTop: space(3), paddingBottom: space(1) }}>
-      {overline ? <T variant="label" style={{ paddingRight: inset }}>{overline}</T> : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(3), paddingRight: inset }}>
-        <T variant="title" style={{ flex: 1 }} numberOfLines={2}>
-          {title}
-        </T>
-        {right}
-      </View>
-      {caption ? <T variant="caption">{caption}</T> : null}
+export const Heading = ({ title, overline, caption, right }: HeadingProps) => (
+  <View style={{ gap: space(1), paddingTop: space(3), paddingBottom: space(1) }}>
+    {overline ? <T variant="label">{overline}</T> : null}
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(3) }}>
+      <T variant="title" style={{ flex: 1 }} numberOfLines={2}>
+        {title}
+      </T>
+      {right}
     </View>
-  );
-};
+    {caption ? <T variant="caption">{caption}</T> : null}
+  </View>
+);
 
 interface HeaderProps {
   title?: string;
-  /** 왼쪽 버튼 글자 (뒤로 / 닫기 / 돌아갈 화면 이름) */
+  /** 왼쪽 버튼 글자 (‹ 뒤로 / 닫기) */
   back?: string;
   /** 돌아갈 곳이 없을 때(주소로 바로 연 경우) 갈 곳 */
   fallback?: string;
@@ -199,18 +135,19 @@ interface HeaderProps {
 /** 쌓인 화면의 윗줄: ‹ 돌아가기 · 제목 · 오른쪽 동작 */
 export const Header = ({ title, back = '뒤로', fallback = '/', right }: HeaderProps) => {
   const theme = useTheme();
-  const inset = useSwitcherInset();
   return (
     <View style={{ gap: space(2), paddingTop: space(1), paddingBottom: space(1) }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, paddingRight: inset }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 40 }}>
         <Pressable
           onPress={() => (router.canGoBack() ? router.back() : router.replace(fallback as never))}
           accessibilityRole="button"
-          accessibilityLabel={back}
+          accessibilityLabel={`${back}`}
           hitSlop={10}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space(0.5), minHeight: 44, marginLeft: -4, opacity: pressed ? 0.5 : 1 })}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space(1), opacity: pressed ? 0.5 : 1 })}
         >
-          <Glyph name="left" color={theme.muted} />
+          <T variant="heading" color={theme.muted} style={{ fontSize: 24, lineHeight: 26, fontWeight: '400' }}>
+            ‹
+          </T>
           <T variant="bodyStrong" color={theme.muted}>
             {back}
           </T>
@@ -282,7 +219,7 @@ interface RowProps {
   onPress?: () => void;
   first?: boolean;
   accessibilityLabel?: string;
-  /** 누르면 이동하는 줄이면 오른쪽 화살표를 붙인다 (기본: onPress 가 있으면) */
+  /** 누르면 이동하는 줄이면 › 를 붙인다 (기본: onPress 가 있으면) */
   chevron?: boolean;
 }
 
@@ -303,7 +240,11 @@ export const Row = ({ title, meta, left, value, onPress, first, accessibilityLab
         ) : null}
       </View>
       {value}
-      {(chevron ?? !!onPress) ? <Glyph name="right" size={18} color={theme.muted} /> : null}
+      {(chevron ?? !!onPress) ? (
+        <T variant="heading" color={theme.muted} style={{ fontWeight: '400' }}>
+          ›
+        </T>
+      ) : null}
     </>
   );
   const rowStyle: ViewStyle = {
@@ -342,8 +283,7 @@ export const Message = ({ text, tone = 'muted' }: MessageProps) => {
   const error = tone === 'error';
   return (
     <View
-      accessibilityRole={error ? 'alert' : undefined}
-      accessibilityLiveRegion={error ? 'assertive' : 'polite'}
+      accessibilityLiveRegion="polite"
       style={{ backgroundColor: error ? theme.dangerSoft : theme.sheet, borderRadius: radius.box, paddingHorizontal: space(4), paddingVertical: space(3) }}
     >
       <T variant="bodyStrong" color={error ? theme.danger : theme.ink} style={{ fontSize: 14, lineHeight: 20 }}>
@@ -370,10 +310,6 @@ interface FieldProps {
   invalid?: boolean;
   autoFocus?: boolean;
   onSubmitEditing?: () => void;
-  /** 보이는 label 이 없을 때 읽기 도구가 읽을 이름 (없으면 placeholder) */
-  accessibilityLabel?: string;
-  /** 비밀번호 관리자 · 자동 완성 힌트 */
-  autoComplete?: TextInputProps['autoComplete'];
   style?: StyleProp<ViewStyle>;
 }
 
@@ -392,8 +328,6 @@ export const Field = ({
   invalid = false,
   autoFocus,
   onSubmitEditing,
-  accessibilityLabel,
-  autoComplete,
   style,
 }: FieldProps) => {
   const theme = useTheme();
@@ -425,8 +359,7 @@ export const Field = ({
           multiline={multiline}
           autoFocus={autoFocus}
           onSubmitEditing={onSubmitEditing}
-          autoComplete={autoComplete}
-          accessibilityLabel={label ?? accessibilityLabel ?? placeholder}
+          accessibilityLabel={label}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           style={[
@@ -525,7 +458,6 @@ interface StepperProps {
 /** − 숫자 + . 횟수 · 세트 · 무게처럼 조금씩 바꾸는 값. 가운데 숫자는 직접 고칠 수도 있다 */
 export const Stepper = ({ label, value, onChange, min = 0, step = 1, unit, placeholder }: StepperProps) => {
   const theme = useTheme();
-  const [focused, setFocused] = React.useState<boolean>(false);
   const n = Number(value.replace(',', '.'));
   const current = Number.isFinite(n) && value.trim() !== '' ? n : NaN;
   const move = (d: number): void => {
@@ -533,7 +465,7 @@ export const Stepper = ({ label, value, onChange, min = 0, step = 1, unit, place
     const next = Math.max(min, Math.round((base + d * step) * 100) / 100);
     onChange(String(next));
   };
-  const btn = (d: number, glyph: 'minus' | 'plus', a11y: string) => (
+  const btn = (d: number, glyph: string, a11y: string) => (
     <Pressable
       onPress={() => move(d)}
       accessibilityRole="button"
@@ -551,36 +483,24 @@ export const Stepper = ({ label, value, onChange, min = 0, step = 1, unit, place
         opacity: pressed ? 0.5 : 1,
       })}
     >
-      <Glyph name={glyph} size={18} />
+      <T variant="heading" style={{ fontWeight: '500' }}>
+        {glyph}
+      </T>
     </Pressable>
   );
   return (
     <View style={{ gap: space(1.5), minWidth: 0, flex: 1 }}>
       <T variant="small">{label}</T>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(1.5) }}>
-        {btn(-1, 'minus', `${label} 줄이기`)}
-        <View
-          style={{
-            flex: 1,
-            minWidth: 0,
-            flexDirection: 'row',
-            alignItems: 'baseline',
-            justifyContent: 'center',
-            gap: 2,
-            // 직접 고치는 중이면 밑줄로 알린다 (자리는 늘 잡아 두어 숫자가 움직이지 않는다)
-            borderBottomWidth: 2,
-            borderBottomColor: focused ? theme.ink : 'transparent',
-          }}
-        >
+        {btn(-1, '−', `${label} 줄이기`)}
+        <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
           <TextInput
             value={value}
             onChangeText={(v) => onChange(v.replace(/[^0-9.,]/g, ''))}
             keyboardType="decimal-pad"
             placeholder={placeholder}
             placeholderTextColor={theme.border}
-            accessibilityLabel={unit ? `${label} (${unit})` : label}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
+            accessibilityLabel={label}
             style={[
               { minWidth: 28, maxWidth: '100%', textAlign: 'center', color: theme.ink, fontSize: 24, fontFamily: fonts.numBold, paddingVertical: 0 },
               { outlineWidth: 0 },
@@ -588,7 +508,7 @@ export const Stepper = ({ label, value, onChange, min = 0, step = 1, unit, place
           />
           {unit ? <T variant="small">{unit}</T> : null}
         </View>
-        {btn(1, 'plus', `${label} 늘리기`)}
+        {btn(1, '+', `${label} 늘리기`)}
       </View>
     </View>
   );
@@ -601,38 +521,34 @@ interface DatePickerProps {
   max?: string;
 }
 
-/** ← 11월 6일 (목) → 를 작게. 오늘이 아니면 '오늘로' */
+/** ‹ 11월 6일 (목) › — 작게. 오늘이 아니면 '오늘로' */
 export const DatePicker = ({ value, onChange, max }: DatePickerProps) => {
   const theme = useTheme();
   const today = todayString();
   const canNext = !max || value < max;
-  const arrow = (d: number, glyph: 'left' | 'right', a11y: string, enabled: boolean) => (
+  const arrow = (d: number, glyph: string, a11y: string, enabled: boolean) => (
     <Pressable
       onPress={() => enabled && onChange(addDays(value, d))}
       disabled={!enabled}
       accessibilityRole="button"
       accessibilityLabel={a11y}
-      accessibilityState={{ disabled: !enabled }}
-      hitSlop={{ top: 6, bottom: 6, left: 6, right: 2 }}
+      hitSlop={6}
       style={({ pressed }) => ({ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', opacity: !enabled ? 0.25 : pressed ? 0.5 : 1 })}
     >
-      <Glyph name={glyph} />
+      <T variant="heading" style={{ fontWeight: '400' }}>
+        {glyph}
+      </T>
     </Pressable>
   );
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(1) }}>
-      {arrow(-1, 'left', '하루 전', true)}
+      {arrow(-1, '‹', '하루 전', true)}
       <T variant="bodyStrong" style={{ minWidth: 112, textAlign: 'center' }}>
         {formatLongDate(value)}
       </T>
-      {arrow(1, 'right', '하루 뒤', canNext)}
+      {arrow(1, '›', '하루 뒤', canNext)}
       {value !== today ? (
-        <Pressable
-          onPress={() => onChange(today)}
-          accessibilityRole="button"
-          hitSlop={{ top: 12, bottom: 12, left: 4, right: 12 }}
-          style={({ pressed }) => ({ marginLeft: space(1), opacity: pressed ? 0.5 : 1 })}
-        >
+        <Pressable onPress={() => onChange(today)} accessibilityRole="button" hitSlop={6} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}>
           <T variant="label" color={theme.ink} style={{ textDecorationLine: 'underline' }}>
             오늘로
           </T>
@@ -757,8 +673,7 @@ export const Segmented = <V extends string>({ options, value, onChange }: Segmen
             onPress={() => onChange(option.value)}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            hitSlop={{ top: 4, bottom: 4 }}
-            style={({ pressed }) => ({
+            style={{
               flex: 1,
               height: 36,
               borderRadius: radius.pill,
@@ -766,8 +681,7 @@ export const Segmented = <V extends string>({ options, value, onChange }: Segmen
               justifyContent: 'center',
               paddingHorizontal: space(3),
               backgroundColor: selected ? theme.ink : 'transparent',
-              opacity: pressed && !selected ? 0.5 : 1,
-            })}
+            }}
           >
             <T variant="label" color={selected ? theme.onInk : theme.muted}>
               {option.label}
@@ -784,19 +698,16 @@ interface ChipProps {
   selected?: boolean;
   onPress: () => void;
   left?: React.ReactNode;
-  /** 여럿 중 하나를 고르는 묶음(radiogroup) 안이면 true */
-  radio?: boolean;
 }
 
 /** 고르기 칩. 고른 칩은 검게 */
-export const Chip = ({ label, selected = false, onPress, left, radio = false }: ChipProps) => {
+export const Chip = ({ label, selected = false, onPress, left }: ChipProps) => {
   const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole={radio ? 'radio' : 'button'}
-      accessibilityState={radio ? { checked: selected } : { selected }}
-      hitSlop={{ top: 2, bottom: 2 }}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
       style={({ pressed }) => ({
         height: 40,
         paddingHorizontal: space(4),
@@ -836,7 +747,6 @@ export const KindChips = <V extends WorkoutKind | PlanKind>({ options, value, on
             key={o.value}
             label={o.label}
             selected={selected}
-            radio
             onPress={() => onChange(o.value)}
             left={<KindMark kind={o.value} size={9} color={selected ? theme.onInk : theme.ink} />}
           />
@@ -871,20 +781,13 @@ interface ProgressBarProps {
   value: number; // 0~1 (넘으면 꽉 채운다)
   marker?: number; // 0~1, 기준선 (예: 오늘까지의 목표)
   muted?: boolean;
-  /** 읽기 도구가 읽을 이름 (예: 오늘 소비 칼로리) */
-  accessibilityLabel?: string;
 }
 
-export const ProgressBar = ({ value, marker, muted, accessibilityLabel }: ProgressBarProps) => {
+export const ProgressBar = ({ value, marker, muted }: ProgressBarProps) => {
   const theme = useTheme();
   const clamp = (n: number): number => Math.max(0, Math.min(1, n));
   return (
-    <View
-      accessibilityRole="progressbar"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityValue={{ min: 0, max: 100, now: Math.round(clamp(value) * 100) }}
-      style={{ height: 8, borderRadius: radius.pill, backgroundColor: theme.line, position: 'relative' }}
-    >
+    <View style={{ height: 8, borderRadius: radius.pill, backgroundColor: theme.line, position: 'relative' }}>
       <View style={{ width: `${clamp(value) * 100}%`, height: '100%', borderRadius: radius.pill, backgroundColor: muted ? theme.muted : theme.ink }} />
       {marker !== undefined && marker > 0 && marker < 1 ? (
         <View style={{ position: 'absolute', left: `${clamp(marker) * 100}%`, top: -5, bottom: -5, width: 2, marginLeft: -1, backgroundColor: theme.ink }} />

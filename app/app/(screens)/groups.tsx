@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, Field, Group, Header, Loading, Message, Page, Screen, T } from '@/components/ui';
+import { Button, Field, Group, Header, Message, Page, Screen, T } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { radius, space, useTheme } from '@/theme';
 import type { Group as GroupType, GroupMember } from '@/types';
@@ -15,7 +15,6 @@ const Groups = () => {
   const [members, setMembers] = useState<Record<string, GroupMember[]>>({});
   const [mode, setMode] = useState<Mode>('none');
   const [text, setText] = useState<string>('');
-  const [loaded, setLoaded] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
   const [notice, setNotice] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -28,8 +27,6 @@ const Groups = () => {
       setMembers(Object.fromEntries(entries));
     } catch (err) {
       setError(err instanceof Error ? err.message : '그룹을 불러오지 못했습니다.');
-    } finally {
-      setLoaded(true);
     }
   }, []);
 
@@ -72,8 +69,7 @@ const Groups = () => {
         <Header back="뒤로" fallback="/me" title="그룹" />
         <T variant="caption">같은 그룹 사람끼리 서로의 지표 차트를 볼 수 있어요 (공유를 끈 사람은 빼고).</T>
 
-        {!loaded ? <Loading /> : null}
-        {loaded && groups.length === 0 && !error ? <Message text="아직 참여한 그룹이 없어요. 새로 만들거나 초대 코드로 참여해 보세요." /> : null}
+        {groups.length === 0 ? <Message text="아직 참여한 그룹이 없어요." /> : null}
         {groups.map((g) => (
           <Group key={g.id} style={{ gap: space(2) }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
@@ -105,7 +101,7 @@ const Groups = () => {
               autoFocus
               onSubmitEditing={() => void submit()}
             />
-            <Button title={busy ? (mode === 'create' ? '만드는 중…' : '참여하는 중…') : mode === 'create' ? '만들기' : '참여하기'} onPress={() => void submit()} disabled={busy || !text.trim()} />
+            <Button title={busy ? '보내는 중…' : mode === 'create' ? '만들기' : '참여하기'} onPress={() => void submit()} disabled={busy || !text.trim()} />
           </View>
         ) : null}
 

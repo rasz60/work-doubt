@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { ActivityGrid, ActivityLegend } from '@/components/ActivityGrid';
-import { Glyph, Loading, Message, Segmented, T } from '@/components/ui';
+import { Message, Segmented, T } from '@/components/ui';
 import {
   addDays,
   addMonths,
@@ -53,7 +53,7 @@ export const CalendarView = ({ initialDate }: { initialDate?: string }) => {
 
   const { from, to } = visibleRange(mode, anchor);
   const month = monthOf(anchor);
-  const { days, loading, error } = useCalendar(from, to);
+  const { days, error } = useCalendar(from, to);
 
   const move = (step: number): void => {
     const next = mode === 'month' ? startOfMonth(addMonths(month, step)) : addDays(anchor, step * 7);
@@ -68,7 +68,7 @@ export const CalendarView = ({ initialDate }: { initialDate?: string }) => {
   const selectedDay = days.find((d) => d.date === selected);
   const label = mode === 'month' ? formatMonth(month) : `${formatShortDate(from)} – ${formatShortDate(to)}`;
 
-  const arrow = (glyph: 'left' | 'right', a11y: string, step: number) => (
+  const arrow = (glyph: string, a11y: string, step: number) => (
     <Pressable
       onPress={() => move(step)}
       accessibilityRole="button"
@@ -76,7 +76,9 @@ export const CalendarView = ({ initialDate }: { initialDate?: string }) => {
       hitSlop={8}
       style={({ pressed }) => ({ width: 40, height: 40, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.5 : 1 })}
     >
-      <Glyph name={glyph} size={22} />
+      <T variant="heading" style={{ fontSize: 26, fontWeight: '400' }}>
+        {glyph}
+      </T>
     </Pressable>
   );
 
@@ -84,26 +86,25 @@ export const CalendarView = ({ initialDate }: { initialDate?: string }) => {
     <View style={{ gap: space(6) }}>
       <View style={{ gap: space(4) }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(1) }}>
-          {arrow('left', mode === 'month' ? '이전 달' : '이전 주', -1)}
+          {arrow('‹', mode === 'month' ? '이전 달' : '이전 주', -1)}
           <Pressable
             onPress={() => {
               setAnchor(today);
               setSelected(today);
             }}
             accessibilityRole="button"
-            accessibilityLabel={`${label}, 오늘로 돌아가기`}
-            style={({ pressed }) => ({ flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.5 : 1 })}
+            accessibilityLabel="오늘로"
+            style={{ flex: 1, alignItems: 'center' }}
           >
             <T variant="heading">{label}</T>
           </Pressable>
-          {arrow('right', mode === 'month' ? '다음 달' : '다음 주', 1)}
+          {arrow('›', mode === 'month' ? '다음 달' : '다음 주', 1)}
           <View style={{ width: 96 }}>
             <Segmented options={MODES} value={mode} onChange={setMode} />
           </View>
         </View>
 
         <Message text={error} tone="error" />
-        {loading && days.length === 0 ? <Loading /> : null}
         <ActivityGrid mode={mode} days={days} month={mode === 'month' ? month : undefined} today={today} selected={selected} onSelect={setSelected} />
         {mode === 'month' && monthDays.length > 0 ? (
           <T variant="label">

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, Group, Header, Loading, Message, Page, Screen, T, TextButton } from '@/components/ui';
+import { Button, Group, Header, Message, Page, Screen, T, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { appleHealthSupported, connectAppleHealth, syncAppleHealth } from '@/features/health/appleHealth';
 import { formatAgo } from '@/lib/date';
@@ -98,9 +98,7 @@ const Health = () => {
                 : 'Apple 건강은 iPhone 의 ae:p 앱에서만 연결하고 보낼 수 있어요.'}
             </T>
           </Group>
-        ) : (
-          <Loading />
-        )}
+        ) : null}
 
         {appleHealthSupported && loaded ? (
           conn ? (

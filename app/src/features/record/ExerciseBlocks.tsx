@@ -75,7 +75,6 @@ export const ExerciseBlocks = ({ blocks, onChange, suggestions }: ExerciseBlocks
                   value={block.name}
                   onChangeText={(v) => update(index, { name: v })}
                   placeholder="종목 이름 (예: 스쿼트)"
-                  accessibilityLabel="종목 이름"
                   autoFocus={naming === index}
                   onSubmitEditing={() => setNaming(null)}
                   style={{ flex: 1 }}
@@ -85,7 +84,7 @@ export const ExerciseBlocks = ({ blocks, onChange, suggestions }: ExerciseBlocks
                   onPress={() => setNaming(index)}
                   accessibilityRole="button"
                   accessibilityLabel={`${block.name} 이름 고치기`}
-                  style={({ pressed }) => ({ flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', opacity: pressed ? 0.5 : 1 })}
+                  style={{ flex: 1, minWidth: 0 }}
                 >
                   <T variant="heading" numberOfLines={1}>
                     {block.name}

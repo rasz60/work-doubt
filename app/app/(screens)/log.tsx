@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { describePlan } from '@/components/ActivityGrid';
 import { KindMark } from '@/components/KindMark';
-import { Button, DatePicker, Header, Loading, Message, Page, Screen, StickyFooter, T, TextButton } from '@/components/ui';
+import { Button, DatePicker, Header, Message, Page, Screen, StickyFooter, T, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { exerciseNames } from '@/features/record/exercises';
 import { planDayFor } from '@/features/record/plan';
@@ -131,7 +131,7 @@ const Log = () => {
         </View>
 
         {loading ? (
-          <Loading />
+          <ActivityIndicator color={theme.ink} />
         ) : (
           <SessionEditor draft={draft} onChange={set} suggestions={suggestions} />
         )}

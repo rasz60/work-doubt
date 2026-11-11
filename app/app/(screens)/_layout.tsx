@@ -1,7 +1,8 @@
 import React from 'react';
+import { ActivityIndicator } from 'react-native';
 import { Redirect, Stack } from 'expo-router';
 
-import { LoadingScreen } from '@/components/ui';
+import { Screen } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/theme';
 
@@ -10,7 +11,13 @@ import { useTheme } from '@/theme';
 const ScreensLayout = () => {
   const theme = useTheme();
   const { signedIn, loading } = useAuth();
-  if (loading) return <LoadingScreen />;
+  if (loading) {
+    return (
+      <Screen>
+        <ActivityIndicator color={theme.ink} />
+      </Screen>
+    );
+  }
   if (!signedIn) return <Redirect href="/login" />;
   return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.paper } }} />;
 };

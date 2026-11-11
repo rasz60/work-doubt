@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { Glyph, Group, Message, T } from '@/components/ui';
+import { Group, Message, T } from '@/components/ui';
 import { isBodyweight, signed, useSummary } from '@/features/stats/useSummary';
 import { StatsPage } from '@/features/stats/StatsPage';
 import { formatShortDate } from '@/lib/date';
@@ -33,7 +33,6 @@ const Weight = () => {
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: space(3),
-                  minHeight: 60,
                   paddingVertical: space(3.5),
                   paddingHorizontal: space(5),
                   borderTopWidth: i === 0 ? 0 : 1,
@@ -58,7 +57,9 @@ const Weight = () => {
                     {e.series.length > 1 ? `${signed(e.delta_1rm)}${bw ? '회' : 'kg'}` : '첫 기록'}
                   </T>
                 </View>
-                <Glyph name="right" size={18} color={theme.muted} />
+                <T variant="heading" color={theme.muted} style={{ fontWeight: '400' }}>
+                  ›
+                </T>
               </Pressable>
             );
           })}

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 
 import { goToPortalLogin, usesPortalLogin } from '@/api/supabase';
-import { KindMark } from '@/components/KindMark';
-import { Button, Field, Group, LoadingScreen, Message, Page, Screen, T } from '@/components/ui';
+import { Button, Field, Group, Message, Page, Screen, T } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { space, useTheme } from '@/theme';
 
@@ -27,7 +26,13 @@ const Login = () => {
 
   if (signedIn && !loading) return <Redirect href="/(tabs)" />;
 
-  if (usesPortalLogin) return <LoadingScreen />;
+  if (usesPortalLogin) {
+    return (
+      <Screen>
+        <ActivityIndicator />
+      </Screen>
+    );
+  }
 
   const submit = async (): Promise<void> => {
     setBusy(true);
@@ -50,18 +55,16 @@ const Login = () => {
           <T variant="numHero" style={{ fontSize: 56, lineHeight: 58 }}>
             NO-WORK-DOUBT.
           </T>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space(2) }}>
-            <KindMark kind="run" size={14} color={theme.muted} />
-            <KindMark kind="weight" size={14} color={theme.muted} />
-            <KindMark kind="other" size={14} color={theme.muted} />
-          </View>
+          <T variant="heading" color={theme.muted}>
+            ● ■ ▲
+          </T>
         </View>
 
         <Group style={{ gap: space(4) }}>
           <T variant="heading">로그인</T>
           <T variant="caption">ae:p 계정으로 로그인해요. 계정은 초대로만 만들 수 있어요.</T>
-          <Field label="이메일" value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" />
-          <Field label="비밀번호" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" onSubmitEditing={() => void submit()} />
+          <Field label="이메일" value={email} onChangeText={setEmail} keyboardType="email-address" />
+          <Field label="비밀번호" value={password} onChangeText={setPassword} secureTextEntry />
           <Message text={error} tone="error" />
           <Button title={busy ? '로그인하는 중…' : '로그인'} onPress={() => void submit()} disabled={busy} />
         </Group>

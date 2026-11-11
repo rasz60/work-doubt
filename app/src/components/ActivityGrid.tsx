@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 
 import { KindMark } from '@/components/KindMark';
 import { T } from '@/components/ui';
-import { WEEKDAY_LABELS, formatDuration, formatKm, formatLongDate, formatPace, weekdayLabel } from '@/lib/date';
+import { WEEKDAY_LABELS, formatDuration, formatKm, formatPace, weekdayLabel } from '@/lib/date';
 import { LEVEL_ALPHA, alpha, radius, space, useTheme, type Theme } from '@/theme';
 import type { CalendarDay, DayStatus, PlanDay, PlanKind, Session, WorkoutKind } from '@/types';
 
@@ -130,9 +130,9 @@ const MonthGrid = ({ days, month, today, selected, onSelect, strip }: GridProps)
                 key={day.date}
                 onPress={() => onSelect(day.date)}
                 accessibilityRole="button"
-                accessibilityLabel={`${formatLongDate(day.date)}${isToday ? ' 오늘' : ''} ${statusText(day)}`}
+                accessibilityLabel={`${day.date} ${STATUS_LABELS[day.status]}`}
                 accessibilityState={{ selected: isSelected }}
-                style={({ pressed }) => ({
+                style={{
                   flex: 1,
                   aspectRatio: 1,
                   borderRadius: radius.cell,
@@ -140,10 +140,10 @@ const MonthGrid = ({ days, month, today, selected, onSelect, strip }: GridProps)
                   borderWidth: look.borderColor === 'transparent' ? 0 : 1.5,
                   borderColor: look.borderColor,
                   borderStyle: look.borderStyle,
-                  opacity: pressed ? 0.55 : outside ? 0.3 : 1,
+                  opacity: outside ? 0.3 : 1,
                   alignItems: 'center',
                   justifyContent: 'center',
-                })}
+                }}
               >
                 <T variant="numSm" color={look.textColor}>
                   {Number(day.date.slice(8, 10))}
@@ -188,17 +188,15 @@ const WeekList = ({ days, today, selected, onSelect }: GridProps) => {
             key={day.date}
             onPress={() => onSelect(day.date)}
             accessibilityRole="button"
-            accessibilityLabel={`${formatLongDate(day.date)}${day.date === today ? ' 오늘' : ''} ${statusText(day)}. ${done || describePlan(day.planned)}`}
             accessibilityState={{ selected: isSelected }}
-            style={({ pressed }) => ({
+            style={{
               flexDirection: 'row',
               alignItems: 'center',
               gap: space(3),
               padding: space(2),
               borderRadius: radius.box,
               backgroundColor: isSelected ? theme.sheet : 'transparent',
-              opacity: pressed ? 0.55 : 1,
-            })}
+            }}
           >
             <View
               style={{
@@ -280,15 +278,7 @@ export const ActivityLegend = () => {
       )}
       {item('planned', swatch({ backgroundColor: theme.paper, borderColor: theme.ink, borderStyle: 'solid' }), '예정')}
       {item('missed', swatch({ backgroundColor: theme.paper, borderColor: theme.border, borderStyle: 'dashed' }), '못 한 날')}
-      {item(
-        'kinds',
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-          <KindMark kind="run" size={8} color={theme.muted} />
-          <KindMark kind="weight" size={8} color={theme.muted} />
-          <KindMark kind="other" size={8} color={theme.muted} />
-        </View>,
-        '러닝 · 웨이트 · 기타',
-      )}
+      {item('kinds', <T variant="small">● ■ ▲</T>, '러닝 · 웨이트 · 기타')}
     </View>
   );
 };
