@@ -1,8 +1,5 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
-
-import { Header, Message, Page, Screen, T } from '@/components/ui';
-import { useTheme } from '@/theme';
+import { Header, Loading, Message, Page, Screen, T } from '@/components/ui';
 
 interface StatsPageProps {
   title: string;
@@ -16,16 +13,13 @@ interface StatsPageProps {
 }
 
 /** 오늘에서 한 단계 들어간 화면: 위에 ‹ 돌아가기 + 제목, 아래 본문 하나 */
-export const StatsPage = ({ title, caption, back = '오늘', fallback = '/', loading, error, children }: StatsPageProps) => {
-  const theme = useTheme();
-  return (
-    <Screen>
-      <Page>
-        <Header back={back} fallback={fallback} title={title} />
-        {caption ? <T variant="caption">{caption}</T> : null}
-        <Message text={error ?? ''} tone="error" />
-        {loading ? <ActivityIndicator color={theme.ink} /> : children}
-      </Page>
-    </Screen>
-  );
-};
+export const StatsPage = ({ title, caption, back = '오늘', fallback = '/', loading, error, children }: StatsPageProps) => (
+  <Screen>
+    <Page>
+      <Header back={back} fallback={fallback} title={title} />
+      {caption ? <T variant="caption">{caption}</T> : null}
+      <Message text={error ?? ''} tone="error" />
+      {loading ? <Loading /> : children}
+    </Page>
+  </Screen>
+);

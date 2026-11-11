@@ -29,7 +29,7 @@ const Kcal = () => {
               <T variant="numHero">{formatNumber(day.actual)}</T>
               <T variant="label">{day.target > 0 ? `/ ${formatNumber(day.target)} kcal` : 'kcal'}</T>
             </View>
-            <ProgressBar value={ratio(day.actual, day.target)} />
+            <ProgressBar value={ratio(day.actual, day.target)} accessibilityLabel="오늘 목표 대비 소비 칼로리" />
             {day.target === 0 ? <T variant="caption">오늘은 계획에 칼로리 목표가 없어요.</T> : null}
           </Group>
 
@@ -43,6 +43,7 @@ const Kcal = () => {
               value={ratio(month.actual, month.target)}
               marker={month.target > 0 ? month.target_to_date / month.target : undefined}
               muted
+              accessibilityLabel="이번 달 목표 대비 소비 칼로리"
             />
             {month.target_to_date > 0 ? (
               <T variant="caption">

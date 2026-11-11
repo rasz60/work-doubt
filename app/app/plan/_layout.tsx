@@ -1,8 +1,7 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
 import { Redirect, Stack } from 'expo-router';
 
-import { Screen } from '@/components/ui';
+import { LoadingScreen } from '@/components/ui';
 import { PlanDraftProvider } from '@/features/record/PlanDraftContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/theme';
@@ -11,13 +10,7 @@ import { useTheme } from '@/theme';
 const PlanLayout = () => {
   const theme = useTheme();
   const { signedIn, loading } = useAuth();
-  if (loading) {
-    return (
-      <Screen>
-        <ActivityIndicator color={theme.ink} />
-      </Screen>
-    );
-  }
+  if (loading) return <LoadingScreen />;
   if (!signedIn) return <Redirect href="/login" />;
   return (
     <PlanDraftProvider>

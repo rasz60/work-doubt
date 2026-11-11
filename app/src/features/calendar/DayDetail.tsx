@@ -39,7 +39,7 @@ export const DayDetail = ({ day }: { day: CalendarDay }) => {
         {day.sessions.length === 0 && !future ? <Row title="기록 없음" /> : null}
       </Group>
       {!future ? <Button title="이날 기록하기" variant="secondary" onPress={() => router.push({ pathname: '/log', params: { date: day.date } })} /> : null}
-      {!day.planned ? <TextButton title="주간 계획 세우기 ›" tone="muted" onPress={() => router.push('/plan')} /> : null}
+      {!day.planned ? <TextButton title="주간 계획 세우기" tone="muted" onPress={() => router.push('/plan')} /> : null}
     </View>
   );
 };

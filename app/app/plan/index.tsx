@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 
-import { Button, DatePicker, Field, Group, Header, Message, Page, Row, Screen, StickyFooter, T, TextButton } from '@/components/ui';
+import { Button, DatePicker, Field, Group, Header, Loading, Message, Page, Row, Screen, StickyFooter, T, TextButton } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { usePlanDraft } from '@/features/record/PlanDraftContext';
 import { describeDayDraft, examplePlan, fromDraft, isEmptyDraft } from '@/features/record/plan';
 import { formatShortDate, todayString, weekdayLabel } from '@/lib/date';
-import { space, useTheme } from '@/theme';
+import { space } from '@/theme';
 
 // 주간 계획: 요일 7줄 요약. 요일을 누르면 그 요일만 고치고, 적용 시작일과 함께 한 번에 저장한다.
 // 저장할 때마다 새 버전이 쌓인다 (지난 잔디는 그때 계획으로 채점).
 const PlanOverview = () => {
-  const theme = useTheme();
   const today = todayString();
   const { plans, loading, error: loadError, reload, draft, setDraft, dirty, setDirty } = usePlanDraft();
   const [busy, setBusy] = useState<boolean>(false);
@@ -45,7 +44,7 @@ const PlanOverview = () => {
           right={plans.length > 0 ? <TextButton title="지난 계획" onPress={() => router.push('/plan/history')} /> : null}
         />
 
-        {loading ? <ActivityIndicator color={theme.ink} /> : null}
+        {loading ? <Loading /> : null}
         <Message text={loadError} tone="error" />
 
         <Group flush>

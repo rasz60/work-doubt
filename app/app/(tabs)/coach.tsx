@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 
-import { Button, Chip, Field, Group, Heading, Message, Screen, T } from '@/components/ui';
+import { Button, Chip, Field, Group, Heading, LoadingScreen, Message, Screen, T } from '@/components/ui';
 import * as api from '@/api/endpoints';
 import { HttpError } from '@/api/client';
 import { askCoach } from '@/api/coachStream';
@@ -97,13 +97,7 @@ const Coach = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Screen>
-        <ActivityIndicator color={theme.ink} />
-      </Screen>
-    );
-  }
+  if (loading) return <LoadingScreen />;
 
   if (blocked) {
     return (
@@ -120,6 +114,8 @@ const Coach = () => {
   }
 
   return (
+    // iOS: 키보드가 올라오면 입력 칸이 그 위로 올라온다 (웹 · Android 는 시스템이 처리)
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <Screen>
       <View style={{ flex: 1, width: '100%', maxWidth: layout.maxWidth, alignSelf: 'center', gap: space(3), paddingBottom: space(3) }}>
         <Heading title={conversation ? conversation.title : 'AI 코치'} caption={conversation ? undefined : '내 기록과 신체 지표를 보고 답해요.'} />
@@ -127,9 +123,9 @@ const Coach = () => {
         {!conversation && (
           <View style={{ gap: space(2) }}>
             <T variant="label">목표</T>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(2) }}>
+            <View accessibilityRole="radiogroup" accessibilityLabel="목표" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space(2) }}>
               {GOALS.map((item) => (
-                <Chip key={item} label={GOAL_LABELS[item]} selected={goal === item} onPress={() => setGoal(item)} />
+                <Chip key={item} radio label={GOAL_LABELS[item]} selected={goal === item} onPress={() => setGoal(item)} />
               ))}
             </View>
           </View>
@@ -153,18 +149,20 @@ const Coach = () => {
             <Bubble key={message.id} role={message.role} content={message.content} />
           ))}
           {streaming !== '' && <Bubble role="assistant" content={streaming} />}
+          {busy && streaming === '' && <T variant="caption">코치가 답을 쓰는 중…</T>}
         </ScrollView>
 
         <Message text={error} tone="error" />
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space(2) }}>
-          <Field value={draft} onChangeText={setDraft} multiline autoCapitalize="sentences" placeholder="코치에게 물어보기" style={{ flex: 1 }} />
+          <Field value={draft} onChangeText={setDraft} multiline autoCapitalize="sentences" placeholder="코치에게 물어보기" accessibilityLabel="코치에게 물어볼 내용" style={{ flex: 1 }} />
           <View style={{ width: 92 }}>
-            <Button title={busy ? '…' : '보내기'} onPress={() => void send()} disabled={busy || !draft.trim()} />
+            <Button title={busy ? '보내는 중' : '보내기'} onPress={() => void send()} disabled={busy || !draft.trim()} />
           </View>
         </View>
       </View>
     </Screen>
+    </KeyboardAvoidingView>
   );
 };
 
